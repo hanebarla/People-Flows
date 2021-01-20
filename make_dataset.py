@@ -9,7 +9,7 @@ import json
 from image import *
 
 #set the root to the path of FDST dataset you download
-root = ''
+root = '/home/data/FDST/'
 
 #now generate the FDST's ground truth
 train_folder = os.path.join(root,'train_data')
@@ -22,12 +22,14 @@ for path in path_sets:
         img_paths.append(img_path)
 
 for img_path in img_paths:
-    print (img_path)
-    gt_path = img_path.replace('.jpg','.json')
-    with open (gt_path,'r') as f:
+    print(img_path)
+    if len(img_path.split('.')) != 2:
+        continue
+    gt_path = img_path.replace('.jpg', '.json')
+    with open(gt_path,'r') as f:
         gt = json.load(f)
 
-    anno_list = gt.values()[0]['regions']
+    anno_list = list(gt.values())[0]['regions']
     img= plt.imread(img_path)
     k = np.zeros((360,640))
     rate_h = img.shape[0]/360.0

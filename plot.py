@@ -62,7 +62,7 @@ model.eval()
 pred= []
 gt = []
 
-for i in range(len(img_paths)):
+for i in range(2):
     img_path = img_paths[i]
 
     img_folder = os.path.dirname(img_path)

@@ -22,8 +22,10 @@ parser.add_argument('train_json', metavar='TRAIN',
 parser.add_argument('val_json', metavar='VAL',
                     help='path to val json')
 
+dloss_on = True
+
 def main():
-    global args,best_prec1
+    global args, best_prec1
 
     best_prec1 = 1e6
 
@@ -34,29 +36,35 @@ def main():
     args.decay         = 5*1e-4
     args.start_epoch   = 0
     args.epochs = 200
-    args.workers = 4
+    args.workers = 8
     args.seed = int(time.time())
-    args.print_freq = 1000
+    args.print_freq = 400
     with open(args.train_json, 'r') as outfile:
         train_list = json.load(outfile)
     with open(args.val_json, 'r') as outfile:
         val_list = json.load(outfile)
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     torch.cuda.manual_seed(args.seed)
 
     model = CANNet2s()
 
-    model = model.cuda()
+    if torch.cuda.device_count() > 1:
+        print("You can use {} GPUs!".format(torch.cuda.device_count()))
+        model = torch.nn.DataParallel(model)
+    model.to(device)
 
-    criterion = nn.MSELoss(size_average=False).cuda()
+    criterion = nn.MSELoss(size_average=False)
 
-    optimizer = torch.optim.Adam(model.parameters(), args.lr,
-                                weight_decay=args.decay)
+    optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.decay)
+
+    torch.backends.cudnn.benchmark = True
 
     for epoch in range(args.start_epoch, args.epochs):
 
-        train(train_list, model, criterion, optimizer, epoch)
-        prec1 = validate(val_list, model, criterion)
+        train(train_list, model, criterion, optimizer, epoch, device)
+        prec1 = validate(val_list, model, criterion, device)
 
         is_best = prec1 < best_prec1
         best_prec1 = min(prec1, best_prec1)
@@ -66,56 +74,56 @@ def main():
             'state_dict': model.state_dict(),
         }, is_best)
 
-def train(train_list, model, criterion, optimizer, epoch):
+def train(train_list, model, criterion, optimizer, epoch, device):
 
     losses = AverageMeter()
     batch_time = AverageMeter()
     data_time = AverageMeter()
 
     train_loader = torch.utils.data.DataLoader(
-        dataset.listDataset(train_list,
-                       shuffle=True,
-                       transform=transforms.Compose([
-                       transforms.ToTensor(),transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225]),
-                   ]),
-                       train=True,
-                       batch_size=args.batch_size,
-                       num_workers=args.workers),
-        batch_size=args.batch_size)
+        dataset.listDataset(train_list, shuffle=True,
+                            transform=transforms.Compose([
+                                transforms.ToTensor(),
+                                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                std=[0.229, 0.224, 0.225]),
+                            ]),
+                            train=True,
+                            batch_size=args.batch_size,
+                            num_workers=args.workers),
+                            batch_size=args.batch_size)
     print('epoch %d, processed %d samples, lr %.10f' % (epoch, epoch * len(train_loader.dataset), args.lr))
 
     model.train()
     end = time.time()
 
-    for i,(prev_img, img, post_img, target ) in enumerate(train_loader):
+    for i, (prev_img, img, post_img, target) in enumerate(train_loader):
 
         data_time.update(time.time() - end)
 
-        prev_img = prev_img.cuda()
+        prev_img = prev_img.to(device)
         prev_img = Variable(prev_img)
 
-        img = img.cuda()
+        img = img.to(device)
         img = Variable(img)
 
-        post_img = post_img.cuda()
+        post_img = post_img.to(device)
         post_img = Variable(post_img)
 
-        prev_flow = model(prev_img,img)
-        post_flow = model(img,post_img)
+        prev_flow = model(prev_img, img)
+        post_flow = model(img, post_img)
 
-        prev_flow_inverse = model(img,prev_img)
-        post_flow_inverse = model(post_img,img)
+        prev_flow_inverse = model(img, prev_img)
+        post_flow_inverse = model(post_img, img)
 
         target = target.type(torch.FloatTensor)[0].cuda()
         target = Variable(target)
 
         # mask the boundary locations where people can move in/out between regions outside image plane
         mask_boundry = torch.zeros(prev_flow.shape[2:])
-        mask_boundry[0,:] = 1.0
-        mask_boundry[-1,:] = 1.0
-        mask_boundry[:,0] = 1.0
-        mask_boundry[:,-1] = 1.0
+        mask_boundry[0, :] = 1.0
+        mask_boundry[-1, :] = 1.0
+        mask_boundry[:, 0] = 1.0
+        mask_boundry[:, -1] = 1.0
 
         mask_boundry = Variable(mask_boundry.cuda())
 
@@ -150,6 +158,15 @@ def train(train_list, model, criterion, optimizer, epoch):
 
         loss = loss_prev_flow+loss_post_flow+loss_prev_flow_inverse+loss_post_flow_inverse+loss_prev_consistency+loss_post_consistency
 
+        # direct loss
+        if dloss_on:
+            loss_prev_direct = criterion(prev_flow[0,0,1:,1:], prev_flow[0,0,1:,1:])+criterion(prev_flow[0,1,1:,:], prev_flow[0,1,:-1,:])+criterion(prev_flow[0,2,1:,:-1], prev_flow[0,2,:-1,1:])+criterion(prev_flow[0,3,:,1:], prev_flow[0,3,:,:-1])+criterion(prev_flow[0,4,:,:], prev_flow[0,4,:,:])+criterion(prev_flow[0,5,:,:-1], prev_flow[0,5,:,1:])+criterion(prev_flow[0,6,:-1,1:], prev_flow[0,6,1:,:-1])+criterion(prev_flow[0,7,:-1,:], prev_flow[0,7,1:,:])+criterion(prev_flow[0,8,:-1,:-1], prev_flow[0,8,1:,1:])
+            loss_post_direct = criterion(post_flow[0,0,1:,1:], post_flow[0,0,1:,1:])+criterion(post_flow[0,1,1:,:], post_flow[0,1,:-1,:])+criterion(post_flow[0,2,1:,:-1], post_flow[0,2,:-1,1:])+criterion(post_flow[0,3,:,1:], post_flow[0,3,:,:-1])+criterion(post_flow[0,4,:,:], post_flow[0,4,:,:])+criterion(post_flow[0,5,:,:-1], post_flow[0,5,:,1:])+criterion(post_flow[0,6,:-1,1:], post_flow[0,6,1:,:-1])+criterion(post_flow[0,7,:-1,:], post_flow[0,7,1:,:])+criterion(post_flow[0,8,:-1,:-1], post_flow[0,8,1:,1:])
+            loss_prev_inv_direct = criterion(prev_flow_inverse[0,0,1:,1:], prev_flow_inverse[0,0,1:,1:])+criterion(prev_flow_inverse[0,1,1:,:], prev_flow_inverse[0,1,:-1,:])+criterion(prev_flow_inverse[0,2,1:,:-1], prev_flow_inverse[0,2,:-1,1:])+criterion(prev_flow_inverse[0,3,:,1:], prev_flow_inverse[0,3,:,:-1])+criterion(prev_flow_inverse[0,4,:,:], prev_flow_inverse[0,4,:,:])+criterion(prev_flow_inverse[0,5,:,:-1], prev_flow_inverse[0,5,:,1:])+criterion(prev_flow_inverse[0,6,:-1,1:], prev_flow_inverse[0,6,1:,:-1])+criterion(prev_flow_inverse[0,7,:-1,:], prev_flow_inverse[0,7,1:,:])+criterion(prev_flow_inverse[0,8,:-1,:-1], prev_flow_inverse[0,8,1:,1:])
+            loss_post_inv_direct = criterion(post_flow_inverse[0,0,1:,1:], post_flow_inverse[0,0,1:,1:])+criterion(post_flow_inverse[0,1,1:,:], post_flow_inverse[0,1,:-1,:])+criterion(post_flow_inverse[0,2,1:,:-1], post_flow_inverse[0,2,:-1,1:])+criterion(post_flow_inverse[0,3,:,1:], post_flow_inverse[0,3,:,:-1])+criterion(post_flow_inverse[0,4,:,:], post_flow_inverse[0,4,:,:])+criterion(post_flow_inverse[0,5,:,:-1], post_flow_inverse[0,5,:,1:])+criterion(post_flow_inverse[0,6,:-1,1:], post_flow_inverse[0,6,1:,:-1])+criterion(post_flow_inverse[0,7,:-1,:], post_flow_inverse[0,7,1:,:])+criterion(post_flow_inverse[0,8,:-1,:-1], post_flow_inverse[0,8,1:,1:])
+
+            loss += loss_prev_direct + loss_post_direct + loss_prev_inv_direct + loss_post_direct
+
         losses.update(loss.item(), img.size(0))
         optimizer.zero_grad()
         loss.backward()
@@ -157,6 +174,11 @@ def train(train_list, model, criterion, optimizer, epoch):
 
         batch_time.update(time.time() - end)
         end = time.time()
+
+        del prev_img
+        del img
+        del post_img
+        del target
 
         if i % args.print_freq == 0:
             print('Epoch: [{0}][{1}/{2}]\t'
@@ -167,7 +189,7 @@ def train(train_list, model, criterion, optimizer, epoch):
                    epoch, i, len(train_loader), batch_time=batch_time,
                    data_time=data_time, loss=losses))
 
-def validate(val_list, model, criterion):
+def validate(val_list, model, criterion, device):
     print ('begin val')
     val_loader = torch.utils.data.DataLoader(
     dataset.listDataset(val_list,
@@ -184,17 +206,17 @@ def validate(val_list, model, criterion):
 
     for i,(prev_img, img, post_img, target ) in enumerate(val_loader):
         # only use previous frame in inference time, as in real-time application scenario, future frame is not available
-        prev_img = prev_img.cuda()
+        prev_img = prev_img.to(device)
         prev_img = Variable(prev_img)
 
-        img = img.cuda()
+        img = img.to(device)
         img = Variable(img)
 
         prev_flow = model(prev_img,img)
         prev_flow_inverse = model(img,prev_img)
 
 
-        target = target.type(torch.FloatTensor)[0].cuda()
+        target = target.type(torch.FloatTensor)[0].to(device)
         target = Variable(target)
 
         mask_boundry = torch.zeros(prev_flow.shape[2:])
@@ -215,6 +237,10 @@ def validate(val_list, model, criterion):
         target = target.type(torch.FloatTensor)
 
         mae += abs(overall.data.sum()-target.sum())
+
+        del prev_img
+        del img
+        del target
 
     mae = mae/len(val_loader)
     print(' * MAE {mae:.3f} '
