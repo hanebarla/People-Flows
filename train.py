@@ -5,7 +5,7 @@ from utils import save_checkpoint
 import torch
 from torch import nn
 from torch.autograd import Variable
-from torchvision import datasets, transforms
+from torchvision import datasets, models, transforms
 import torch.nn.functional as F
 
 import numpy as np
@@ -39,6 +39,7 @@ def main():
     args.workers = 8
     args.seed = int(time.time())
     args.print_freq = 400
+    args.pretrained = True
     with open(args.train_json, 'r') as outfile:
         train_list = json.load(outfile)
     with open(args.val_json, 'r') as outfile:
@@ -49,6 +50,9 @@ def main():
     torch.cuda.manual_seed(args.seed)
 
     model = CANNet2s()
+    if args.pretrained:
+        checkpoint = torch.load('fdst.pth.tar')
+        model.load_state_dict(checkpoint['state_dict'], strict=False)
 
     if torch.cuda.device_count() > 1:
         print("You can use {} GPUs!".format(torch.cuda.device_count()))
@@ -165,7 +169,7 @@ def train(train_list, model, criterion, optimizer, epoch, device):
             loss_prev_inv_direct = criterion(prev_flow_inverse[0,0,1:,1:], prev_flow_inverse[0,0,1:,1:])+criterion(prev_flow_inverse[0,1,1:,:], prev_flow_inverse[0,1,:-1,:])+criterion(prev_flow_inverse[0,2,1:,:-1], prev_flow_inverse[0,2,:-1,1:])+criterion(prev_flow_inverse[0,3,:,1:], prev_flow_inverse[0,3,:,:-1])+criterion(prev_flow_inverse[0,4,:,:], prev_flow_inverse[0,4,:,:])+criterion(prev_flow_inverse[0,5,:,:-1], prev_flow_inverse[0,5,:,1:])+criterion(prev_flow_inverse[0,6,:-1,1:], prev_flow_inverse[0,6,1:,:-1])+criterion(prev_flow_inverse[0,7,:-1,:], prev_flow_inverse[0,7,1:,:])+criterion(prev_flow_inverse[0,8,:-1,:-1], prev_flow_inverse[0,8,1:,1:])
             loss_post_inv_direct = criterion(post_flow_inverse[0,0,1:,1:], post_flow_inverse[0,0,1:,1:])+criterion(post_flow_inverse[0,1,1:,:], post_flow_inverse[0,1,:-1,:])+criterion(post_flow_inverse[0,2,1:,:-1], post_flow_inverse[0,2,:-1,1:])+criterion(post_flow_inverse[0,3,:,1:], post_flow_inverse[0,3,:,:-1])+criterion(post_flow_inverse[0,4,:,:], post_flow_inverse[0,4,:,:])+criterion(post_flow_inverse[0,5,:,:-1], post_flow_inverse[0,5,:,1:])+criterion(post_flow_inverse[0,6,:-1,1:], post_flow_inverse[0,6,1:,:-1])+criterion(post_flow_inverse[0,7,:-1,:], post_flow_inverse[0,7,1:,:])+criterion(post_flow_inverse[0,8,:-1,:-1], post_flow_inverse[0,8,1:,1:])
 
-            loss += loss_prev_direct + loss_post_direct + loss_prev_inv_direct + loss_post_direct
+            loss += 0.1 *(loss_prev_direct + loss_post_direct + loss_prev_inv_direct + loss_post_direct)
 
         losses.update(loss.item(), img.size(0))
         optimizer.zero_grad()

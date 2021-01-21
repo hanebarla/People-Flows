@@ -3,6 +3,8 @@ import json
 import PIL.Image as Image
 import numpy as np
 import os
+
+from torch._C import dtype
 from image import *
 from model import CANNet2s
 import torch
@@ -54,8 +56,7 @@ model = CANNet2s()
 model = model.cuda()
 
 checkpoint = torch.load('fdst.pth.tar')
-
-model.load_state_dict(checkpoint['state_dict'])
+model.load_state_dict(checkpoint['state_dict'], strict=False)
 
 model.eval()
 
