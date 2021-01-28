@@ -1,6 +1,6 @@
 import os
 from model import CANNet2s
-from utils import save_checkpoint
+from utils import save_checkpoint, fix_model_state_dict
 
 import torch
 from torch import nn
@@ -52,7 +52,7 @@ def main():
     model = CANNet2s()
     if args.pretrained:
         checkpoint = torch.load('model_best.pth.tar')
-        model.load_state_dict(checkpoint['state_dict'])
+        model.load_state_dict(fix_model_state_dict(checkpoint['state_dict']))
 
     if torch.cuda.device_count() > 1:
         print("You can use {} GPUs!".format(torch.cuda.device_count()))
