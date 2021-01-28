@@ -51,8 +51,8 @@ def main():
 
     model = CANNet2s()
     if args.pretrained:
-        checkpoint = torch.load('fdst.pth.tar')
-        model.load_state_dict(checkpoint['state_dict'], strict=False)
+        checkpoint = torch.load('model_best.pth.tar')
+        model.load_state_dict(checkpoint['state_dict'])
 
     if torch.cuda.device_count() > 1:
         print("You can use {} GPUs!".format(torch.cuda.device_count()))

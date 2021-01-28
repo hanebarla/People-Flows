@@ -1,3 +1,5 @@
+from utils import fix_model_state_dict
+
 import h5py
 import json
 import PIL.Image as Image
@@ -34,9 +36,9 @@ model = CANNet2s()
 model = model.cuda()
 
 # modify the path of saved checkpoint if necessary
-checkpoint = torch.load('fdst.pth.tar')
+checkpoint = torch.load('model_best.pth.tar')
 
-model.load_state_dict(checkpoint['state_dict'])
+model.load_state_dict(fix_model_state_dict(checkpoint['state_dict']))
 
 model.eval()
 
