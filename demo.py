@@ -1,4 +1,5 @@
 import json
+import cv2
 import PIL.Image as Image
 import numpy as np
 import torch
@@ -9,25 +10,13 @@ from utils import *
 import model
 from torchvision import transforms
 from torch.autograd import Variable
+from opticalflow import OptFlow
 
 normal_path = "checkpoint.pth.tar"
 direct_path = "fdst.pth.tar"
 
 
-def demo():
-    parser = argparse.ArgumentParser(description="""
-                                                 Please specify the csv file of the Datasets path.
-                                                 In default, path is 'Data/TestData_Path.csv'
-                                                 """)
-
-    parser.add_argument('-p', '--path', default='TestData_Path.csv')  # Testdata path csv
-    parser.add_argument('-wd', '--width', type=int, default=640)  # image width that input to model
-    parser.add_argument('-ht', '--height', type=int, default=360)  # image height thta input to model
-    parser.add_argument('-nw', '--normal_weight', default=normal_path)
-    parser.add_argument('-dw', '--direct_weight', default=direct_path)
-    parser.add_argument('-num', '--img_num', default=10)
-
-    args = parser.parse_args()
+def demo(args, start, end):
     test_d_path = args.path
     normal_weights = args.normal_weight
     direct_weights = args.direct_weight
@@ -63,19 +52,23 @@ def demo():
                      'normal',
                      'normal_quiver',
                      'direct',
-                     'direct_quiver']
+                     'direct_quiver',
+                     'OF',
+                     'OF_quiver']
 
     img_dict = {
         img_dict_keys[0]: ('img', None),
         img_dict_keys[1]: ('img', None),
         img_dict_keys[2]: ('quiver', None),
         img_dict_keys[3]: ('img', None),
-        img_dict_keys[4]: ('quiver', None)
+        img_dict_keys[4]: ('quiver', None),
+        img_dict_keys[5]: ('img', None),
+        img_dict_keys[6]: ('quiver', None)
     }
 
     DemoImg = CompareOutput(img_dict_keys)
 
-    for i in range(num):
+    for i in range(start, end):
         img_path = img_paths[i]
 
         img_folder = os.path.dirname(img_path)
@@ -90,6 +83,17 @@ def demo():
 
         prev_img = prev_img.resize((640,360))
         img = img.resize((640,360))
+
+        # opticalflow
+        of_prev_img = prev_img.resize((80, 45))
+        of_prev_img = np.array(of_prev_img)
+        of_img = img.resize((80, 45))
+        of_img = np.array(of_img)
+
+        hsv = OptFlow(of_prev_img, of_img)
+        OF_flow = hsvToflow(hsv)
+        OF_quiver = NormalizeQuiver(OF_flow.transpose((2, 0, 1)))
+        OF_dense = tm_output_to_dense(OF_flow)
 
         prev_img = transform(prev_img).cuda()
         img = transform(img).cuda()
@@ -136,6 +140,8 @@ def demo():
             img_dict_keys[2]: ('quiver', normal_quiver),
             img_dict_keys[3]: ('img', direct_dense),
             img_dict_keys[4]: ('quiver', direct_quiver),
+            img_dict_keys[5]: ('img', OF_dense),
+            img_dict_keys[6]: ('quiver', OF_quiver),
         }
 
         DemoImg.append_pred(img_dict)
@@ -143,8 +149,23 @@ def demo():
         print("{} / {} done\r".format((i+1), num), end="")
 
     DemoImg.plot_img()
-    DemoImg.save_fig()
+    DemoImg.save_fig(name='images/demo-{}.png'.format(int(start/10)))
 
 
 if __name__ == "__main__":
-    demo()
+    parser = argparse.ArgumentParser(description="""
+                                                 Please specify the csv file of the Datasets path.
+                                                 In default, path is 'Data/TestData_Path.csv'
+                                                 """)
+
+    parser.add_argument('-p', '--path', default='TestData_Path.csv')  # Testdata path csv
+    parser.add_argument('-wd', '--width', type=int, default=640)  # image width that input to model
+    parser.add_argument('-ht', '--height', type=int, default=360)  # image height thta input to model
+    parser.add_argument('-nw', '--normal_weight', default=normal_path)
+    parser.add_argument('-dw', '--direct_weight', default=direct_path)
+    parser.add_argument('-num', '--img_num', default=10)
+
+    args = parser.parse_args()
+
+    for i in range(100):
+        demo(args, i*10, i+10)

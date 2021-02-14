@@ -7,7 +7,12 @@ import cv2
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+from torch.functional import norm
 import torchvision
+import matplotlib.cm as cm
+from matplotlib.colors import Normalize
+
+
 def save_net(fname, net):
     with h5py.File(fname, 'w') as h5f:
         for k, v in net.state_dict().items():
@@ -49,6 +54,8 @@ class CompareOutput():
         self.img_height = 0
         self.figure = None
         self.axes = []
+        self.cm = cm.hsv
+        self.norm = Normalize()
 
     def append_pred(self, loss_dict):
         for k in loss_dict:
@@ -79,16 +86,20 @@ class CompareOutput():
                 if content[0] == 'img':
                     self.axes[h][w].imshow(content[1])
                 else:
+                    colors = -np.arctan2(content[1][2], content[1][3])
+                    self.norm.autoscale(colors)
                     self.axes[h][w].quiver(content[1][0],
                                            content[1][1],
                                            content[1][2],
-                                           content[1][3])
+                                           content[1][3],
+                                           color=self.cm(self.norm(colors)),
+                                           angles='xy', scale_units='xy', scale=1)
                     self.axes[h][w].set_ylim(0, 45)
                     self.axes[h][w].set_xlim(0, 80)
                     self.axes[h][w].set_aspect('equal')
 
-    def save_fig(self):
-        self.figure.savefig('images/demo.png', dpi=300)
+    def save_fig(self, name='images/demo.png'):
+        self.figure.savefig(name, dpi=300)
 
 
 def tm_output_to_dense(output):
@@ -194,11 +205,16 @@ def NormalizeQuiver(output):
         imY[i, :] = np.linspace(0, y, y)
 
     v_leng = np.sqrt(heats_u * heats_u + heats_v * heats_v)
-    v_leng_true = v_leng > np.mean(v_leng)
+    v_leng_true = v_leng > 0
     imX = imX[v_leng_true]
     imY = imY[v_leng_true]
     heats_u_cut = heats_u[v_leng_true] / v_leng[v_leng_true]
     heats_v_cut = heats_v[v_leng_true] / v_leng[v_leng_true]
+    # heats_u_cut = heats_u[v_leng_true]
+    # heats_v_cut = heats_v[v_leng_true]
+    # cut_lengs = np.sqrt(heats_u_cut * heats_u_cut + heats_v_cut * heats_v_cut)
+    # heats_u_cut = heats_u_cut / cut_lengs
+    # heats_v_cut = heats_v_cut / cut_lengs
 
     return (imY, imX, heats_u_cut, heats_v_cut)
 
@@ -210,3 +226,17 @@ def output_res_img(label, output):
 
     return res
 
+
+def hsvToflow(hsv):
+    flow = np.zeros((hsv.shape[0], hsv.shape[1], 10))
+
+    flow[:, :, 5] = np.where((hsv[:, :, 0] < 12) | (hsv[:, :, 0] >= 169), hsv[:, :, 2], 0)
+    flow[:, :, 2] = np.where((hsv[:, :, 0] >= 12) & (hsv[:, :, 0] < 35), hsv[:, :, 2], 0)
+    flow[:, :, 1] = np.where((hsv[:, :, 0] >= 35) & (hsv[:, :, 0] < 57), hsv[:, :, 2], 0)
+    flow[:, :, 0] = np.where((hsv[:, :, 0] >= 57) & (hsv[:, :, 0] < 80), hsv[:, :, 2], 0)
+    flow[:, :, 3] = np.where((hsv[:, :, 0] >= 80) & (hsv[:, :, 0] < 102), hsv[:, :, 2], 0)
+    flow[:, :, 6] = np.where((hsv[:, :, 0] >= 102) & (hsv[:, :, 0] < 124), hsv[:, :, 2], 0)
+    flow[:, :, 7] = np.where((hsv[:, :, 0] >= 124) & (hsv[:, :, 0] < 147), hsv[:, :, 2], 0)
+    flow[:, :, 8] = np.where((hsv[:, :, 0] >= 147) & (hsv[:, :, 0] < 169), hsv[:, :, 2], 0)
+
+    return flow
