@@ -1,4 +1,4 @@
-from utils import fix_model_state_dict
+from utils import fix_model_state_dict, FlowGradCAMpp
 
 import h5py
 import json
@@ -15,6 +15,7 @@ import cv2
 from matplotlib import cm
 
 from torchvision import transforms
+from torchvision.utils import make_grid
 
 from gradcam.utils import visualize_cam
 from gradcam import GradCAMpp
@@ -40,7 +41,7 @@ model.load_state_dict(fix_model_state_dict(checkpoint['state_dict']))
 model.eval()
 
 target_layer = model.frontend
-gradcam_pp = GradCAMpp(model, target_layer)
+gradcam_pp = FlowGradCAMpp(model, target_layer)
 
 pred= []
 gt = []
@@ -72,7 +73,7 @@ for i in range(1):
     gt_file = h5py.File(gt_path)
     target = np.asarray(gt_file['density'])
 
-    mask_pp, _ = gradcam_pp(normed_torch_img)
+    mask_pp, _ = gradcam_pp((normed_torch_prev_img, normed_torch_img))
     heatmap_pp, result_pp = visualize_cam(mask_pp, torch_img)
 
     images.extend([torch_img.cpu(), heatmap_pp, result_pp])

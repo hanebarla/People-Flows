@@ -11,6 +11,7 @@ import model
 from torchvision import transforms
 from torch.autograd import Variable
 from opticalflow import OptFlow
+from gradcam.utils import visualize_cam
 
 normal_path = "checkpoint.pth.tar"
 direct_path = "fdst.pth.tar"
@@ -25,7 +26,7 @@ def demo(args, start, end):
     # json file contains the test images
     test_json_path = './test.json'
     # the floder to output density map and flow maps
-    output_floder = ',/plot'
+    output_floder = './plot'
 
     with open(test_json_path, 'r') as outfile:
         img_paths = json.load(outfile)
@@ -48,22 +49,27 @@ def demo(args, start, end):
         transforms.Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225])
     ])
 
+    target_layer = CANnet.frontend
+    gradcam_pp = FlowGradCAMpp(CANnet, target_layer)
+    D_target_layer = D_CANnet.frontend
+    D_gradcam_pp = FlowGradCAMpp(D_CANnet, D_target_layer)
+
     img_dict_keys = ['input',
                      'normal',
                      'normal_quiver',
+                     'normal_GradCamPP',
                      'direct',
                      'direct_quiver',
-                     'OF',
-                     'OF_quiver']
+                     'direct_GradCamPP']
 
     img_dict = {
         img_dict_keys[0]: ('img', None),
         img_dict_keys[1]: ('img', None),
         img_dict_keys[2]: ('quiver', None),
         img_dict_keys[3]: ('img', None),
-        img_dict_keys[4]: ('quiver', None),
-        img_dict_keys[5]: ('img', None),
-        img_dict_keys[6]: ('quiver', None)
+        img_dict_keys[4]: ('img', None),
+        img_dict_keys[5]: ('quiver', None),
+        img_dict_keys[6]: ('img', None)
     }
 
     DemoImg = CompareOutput(img_dict_keys)
@@ -83,6 +89,8 @@ def demo(args, start, end):
 
         prev_img = prev_img.resize((640,360))
         img = img.resize((640,360))
+        torch_prev_img = torchvision.transforms.ToTensor()(prev_img)
+        torch_img = torchvision.transforms.ToTensor()(img)
 
         # opticalflow
         of_prev_img = prev_img.resize((80, 45))
@@ -108,9 +116,19 @@ def demo(args, start, end):
         img = img.cuda()
         img = Variable(img)
 
-
         img = img.unsqueeze(0)
         prev_img = prev_img.unsqueeze(0)
+
+        mask_pp, _ = gradcam_pp((prev_img, img))
+        heatmap_pp, result_pp = visualize_cam(mask_pp, torch_img)
+        result_pp = result_pp.to('cpu').detach().numpy().copy()
+        result_pp = np.transpose(result_pp, (1, 2, 0))
+        result_pp = cv2.resize(result_pp, (80, 45))
+        D_mask_pp, _ = D_gradcam_pp((prev_img, img))
+        D_heatmap_pp, D_result_pp = visualize_cam(D_mask_pp, torch_img)
+        D_result_pp = D_result_pp.to('cpu').detach().numpy().copy()
+        D_result_pp = np.transpose(D_result_pp, (1, 2, 0))
+        D_result_pp = cv2.resize(D_result_pp, (80, 45))
 
 
         with torch.set_grad_enabled(False):
@@ -138,10 +156,10 @@ def demo(args, start, end):
             img_dict_keys[0]: ('img', input_num),
             img_dict_keys[1]: ('img', normal_dense),
             img_dict_keys[2]: ('quiver', normal_quiver),
-            img_dict_keys[3]: ('img', direct_dense),
-            img_dict_keys[4]: ('quiver', direct_quiver),
-            img_dict_keys[5]: ('img', OF_dense),
-            img_dict_keys[6]: ('quiver', OF_quiver),
+            img_dict_keys[3]: ('img', result_pp),
+            img_dict_keys[4]: ('img', direct_dense),
+            img_dict_keys[5]: ('quiver', direct_quiver),
+            img_dict_keys[6]: ('img', D_result_pp)
         }
 
         DemoImg.append_pred(img_dict)
@@ -167,5 +185,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    for i in range(100):
+    for i in range(1):
         demo(args, i*10, i+10)
