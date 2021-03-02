@@ -56,7 +56,7 @@ class CompareOutput():
         self.img_height = 0
         self.figure = None
         self.axes = []
-        self.cm = cm.hsv
+        self.cm = cm.Reds
         self.norm = Normalize()
 
     def append_pred(self, loss_dict):
@@ -88,14 +88,18 @@ class CompareOutput():
                 if content[0] == 'img':
                     self.axes[h][w].imshow(content[1])
                 else:
-                    colors = -np.arctan2(content[1][2], content[1][3])
+                    # colors = -np.arctan2(content[1][2], content[1][3])
+                    colors = np.sqrt(content[1][2] * content[1][2] + content[1][3] * content[1][3])
+                    v_length = colors.copy()
                     self.norm.autoscale(colors)
                     self.axes[h][w].quiver(content[1][0],
                                            content[1][1],
-                                           content[1][2],
-                                           content[1][3],
+                                           content[1][2] / v_length,
+                                           content[1][3] / v_length,
                                            color=self.cm(self.norm(colors)),
-                                           angles='xy', scale_units='xy', scale=1)
+                                           angles='xy', scale_units='xy', scale=1,
+                                           headlength=1.2, headaxislength=1.08,
+                                           pivot='mid')
                     self.axes[h][w].set_ylim(0, 45)
                     self.axes[h][w].set_xlim(0, 80)
                     self.axes[h][w].set_aspect('equal')
@@ -210,10 +214,10 @@ def NormalizeQuiver(output):
     v_leng_true = v_leng > 0
     imX = imX[v_leng_true]
     imY = imY[v_leng_true]
-    heats_u_cut = heats_u[v_leng_true] / v_leng[v_leng_true]
-    heats_v_cut = heats_v[v_leng_true] / v_leng[v_leng_true]
-    # heats_u_cut = heats_u[v_leng_true]
-    # heats_v_cut = heats_v[v_leng_true]
+    # heats_u_cut = heats_u[v_leng_true] / v_leng[v_leng_true]
+    # heats_v_cut = heats_v[v_leng_true] / v_leng[v_leng_true]
+    heats_u_cut = heats_u[v_leng_true]
+    heats_v_cut = heats_v[v_leng_true]
     # cut_lengs = np.sqrt(heats_u_cut * heats_u_cut + heats_v_cut * heats_v_cut)
     # heats_u_cut = heats_u_cut / cut_lengs
     # heats_v_cut = heats_v_cut / cut_lengs

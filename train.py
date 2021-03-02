@@ -21,13 +21,45 @@ parser.add_argument('train_json', metavar='TRAIN',
                     help='path to train json')
 parser.add_argument('val_json', metavar='VAL',
                     help='path to val json')
+parser.add_argument('--dataset', default="FDST")
 
 dloss_on = True
+
+
+def dataset_factory(dlist, arguments, mode="train"):
+    if arguments.dataset == "FDST":
+        if mode == "train":
+            return dataset.listDataset(dlist, shuffle=True,
+                                       transform=transforms.Compose([
+                                           transforms.ToTensor(),
+                                           transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                           std=[0.229, 0.224, 0.225]),
+                                       ]),
+                                       train=True,
+                                       batch_size=args.batch_size,
+                                       num_workers=args.workers)
+        else:
+            return dataset.listDataset(dlist,
+                                       shuffle=False,
+                                       transform=transforms.Compose([
+                                           transforms.ToTensor(),
+                                           transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                           std=[0.229, 0.224, 0.225]),
+                                       ]), train=False)
+    elif arguments.dataset == "CrowdFlow":
+        return dataset.CrowdDatasets(dlist,
+                                     transform=transforms.Compose([
+                                         transforms.ToTensor(),
+                                         transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                         std=[0.229, 0.224, 0.225]),
+                                     ])
+                                     )
+
 
 def main():
     global args, best_prec1
 
-    best_prec1 = 1e6
+    best_prec1 = 2
 
     args = parser.parse_args()
     args.lr = 1e-4
@@ -39,11 +71,15 @@ def main():
     args.workers = 8
     args.seed = int(time.time())
     args.print_freq = 400
-    args.pretrained = True
-    with open(args.train_json, 'r') as outfile:
-        train_list = json.load(outfile)
-    with open(args.val_json, 'r') as outfile:
-        val_list = json.load(outfile)
+    args.pretrained = False
+    if args.dataset  == "FDST":
+        with open(args.train_json, 'r') as outfile:
+            train_list = json.load(outfile)
+        with open(args.val_json, 'r') as outfile:
+            val_list = json.load(outfile)
+    elif args.dataset == "CrowdFlow":
+        train_list = args.train_json
+        val_list = args.val_json
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -51,8 +87,12 @@ def main():
 
     model = CANNet2s()
     if args.pretrained:
-        checkpoint = torch.load('model_best.pth.tar')
+        checkpoint = torch.load('model_best_1.094.pth.tar')
         model.load_state_dict(fix_model_state_dict(checkpoint['state_dict']))
+        try:
+            best_prec1 = checkpoint['val']
+        except KeyError:
+            print("No Key: val")
 
     if torch.cuda.device_count() > 1:
         print("You can use {} GPUs!".format(torch.cuda.device_count()))
@@ -76,25 +116,21 @@ def main():
               .format(mae=best_prec1))
         save_checkpoint({
             'state_dict': model.state_dict(),
+            'val': prec1.item()
         }, is_best)
 
+
 def train(train_list, model, criterion, optimizer, epoch, device):
+    global args
 
     losses = AverageMeter()
     batch_time = AverageMeter()
     data_time = AverageMeter()
+    train_dataset = dataset_factory(train_list, args, mode="train")
 
     train_loader = torch.utils.data.DataLoader(
-        dataset.listDataset(train_list, shuffle=True,
-                            transform=transforms.Compose([
-                                transforms.ToTensor(),
-                                transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                std=[0.229, 0.224, 0.225]),
-                            ]),
-                            train=True,
-                            batch_size=args.batch_size,
-                            num_workers=args.workers),
-                            batch_size=args.batch_size)
+        train_dataset,
+        batch_size=args.batch_size)
     print('epoch %d, processed %d samples, lr %.10f' % (epoch, epoch * len(train_loader.dataset), args.lr))
 
     model.train()
@@ -104,13 +140,13 @@ def train(train_list, model, criterion, optimizer, epoch, device):
 
         data_time.update(time.time() - end)
 
-        prev_img = prev_img.to(device)
+        prev_img = prev_img.to(device, dtype=torch.float)
         prev_img = Variable(prev_img)
 
-        img = img.to(device)
+        img = img.to(device, dtype=torch.float)
         img = Variable(img)
 
-        post_img = post_img.to(device)
+        post_img = post_img.to(device, dtype=torch.float)
         post_img = Variable(post_img)
 
         prev_flow = model(prev_img, img)
@@ -194,14 +230,11 @@ def train(train_list, model, criterion, optimizer, epoch, device):
                    data_time=data_time, loss=losses))
 
 def validate(val_list, model, criterion, device):
+    global args
     print ('begin val')
+    val_dataset = dataset_factory(val_list, args, mode="val")
     val_loader = torch.utils.data.DataLoader(
-    dataset.listDataset(val_list,
-                   shuffle=False,
-                   transform=transforms.Compose([
-                       transforms.ToTensor(),transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225]),
-                   ]),  train=False),
+    val_dataset,
     batch_size=1)
 
     model.eval()
@@ -210,17 +243,17 @@ def validate(val_list, model, criterion, device):
 
     for i,(prev_img, img, post_img, target ) in enumerate(val_loader):
         # only use previous frame in inference time, as in real-time application scenario, future frame is not available
-        prev_img = prev_img.to(device)
+        prev_img = prev_img.to(device, dtype=torch.float)
         prev_img = Variable(prev_img)
 
-        img = img.to(device)
+        img = img.to(device, dtype=torch.float)
         img = Variable(img)
 
         prev_flow = model(prev_img,img)
         prev_flow_inverse = model(img,prev_img)
 
 
-        target = target.type(torch.FloatTensor)[0].to(device)
+        target = target.type(torch.FloatTensor)[0].to(device, dtype=torch.float)
         target = Variable(target)
 
         mask_boundry = torch.zeros(prev_flow.shape[2:])

@@ -13,15 +13,20 @@ import torch
 from torch.autograd import Variable
 import torch.nn.functional as F
 import cv2
+import argparse
 
 from torchvision import transforms
 
-from sklearn.metrics import mean_squared_error,mean_absolute_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 
-transform=transforms.Compose([
-                       transforms.ToTensor(),transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225]),
-                   ])
+
+parser = argparse.ArgumentParser(description='PyTorch CANNet2s')
+parser.add_argument('--dataset', default="FDST")
+
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
 
 # the json file contains path of test images
 test_json_path = './test.json'
