@@ -29,7 +29,7 @@ transform = transforms.Compose([
 ])
 
 # the json file contains path of test images
-test_json_path = './test.json'
+test_json_path = './venice_test.json'
 
 with open(test_json_path, 'r') as outfile:
     img_paths = json.load(outfile)

@@ -9,6 +9,7 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from torch.functional import norm
+from torch.utils import data
 import torchvision
 import matplotlib.cm as cm
 from matplotlib.colors import Normalize
@@ -24,10 +25,10 @@ def load_net(fname, net):
         for k, v in net.state_dict().items():
             param = torch.from_numpy(np.asarray(h5f[k]))
             v.copy_(param)
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, filename='checkpoint.pth.tar', dataname='fdst'):
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
+        shutil.copyfile(filename, dataname + '_' + 'model_best.pth.tar')
 def fix_model_state_dict(state_dict):
     new_state_dict = OrderedDict()
     for k, v in state_dict.items():

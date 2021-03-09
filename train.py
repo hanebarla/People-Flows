@@ -54,24 +54,36 @@ def dataset_factory(dlist, arguments, mode="train"):
                                          std=[0.229, 0.224, 0.225]),
                                      ])
                                      )
+    elif arguments.dataset == "venice":
+        return dataset.VeniceDataset(dlist,
+                                     transform=transforms.Compose([
+                                         transforms.ToTensor(),
+                                         transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                         std=[0.229, 0.224, 0.225]),
+                                     ])
+                                     )
+    else:
+        raise ValueError
 
 
 def main():
     global args, best_prec1
 
-    best_prec1 = 2
+    best_prec1 = 200
 
     args = parser.parse_args()
     args.lr = 1e-4
     args.batch_size    = 1
     args.momentum      = 0.95
-    args.decay         = 5*1e-4
+    # args.decay         = 5*1e-4
+    args.decay         = 1e-3
     args.start_epoch   = 0
     args.epochs = 200
     args.workers = 8
     args.seed = int(time.time())
-    args.print_freq = 400
-    args.pretrained = False
+    # args.print_freq = 400
+    args.print_freq = 10
+    args.pretrained = True
     if args.dataset  == "FDST":
         with open(args.train_json, 'r') as outfile:
             train_list = json.load(outfile)
@@ -80,6 +92,11 @@ def main():
     elif args.dataset == "CrowdFlow":
         train_list = args.train_json
         val_list = args.val_json
+    elif args.dataset == "venice":
+        train_list = args.train_json
+        val_list = args.val_json
+    else:
+        raise ValueError
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -87,10 +104,11 @@ def main():
 
     model = CANNet2s()
     if args.pretrained:
-        checkpoint = torch.load('model_best_1.094.pth.tar')
+        checkpoint = torch.load('checkpoint.pth.tar')
         model.load_state_dict(fix_model_state_dict(checkpoint['state_dict']))
         try:
             best_prec1 = checkpoint['val']
+            print("best val: {}".format(best_prec1))
         except KeyError:
             print("No Key: val")
 
@@ -98,6 +116,7 @@ def main():
         print("You can use {} GPUs!".format(torch.cuda.device_count()))
         model = torch.nn.DataParallel(model)
     model.to(device)
+    best_prec1 = 23.702
 
     criterion = nn.MSELoss(size_average=False)
 
@@ -117,7 +136,7 @@ def main():
         save_checkpoint({
             'state_dict': model.state_dict(),
             'val': prec1.item()
-        }, is_best)
+        }, is_best, dataname=args.dataset)
 
 
 def train(train_list, model, criterion, optimizer, epoch, device):
@@ -183,7 +202,6 @@ def train(train_list, model, criterion, optimizer, epoch, device):
 
         post_density_reconstruction_inverse = torch.sum(post_flow_inverse[0,:9,:,:],dim=0)+post_flow_inverse[0,9,:,:]*mask_boundry
         post_density_reconstruction = F.pad(post_flow[0,0,1:,1:],(0,1,0,1))+F.pad(post_flow[0,1,1:,:],(0,0,0,1))+F.pad(post_flow[0,2,1:,:-1],(1,0,0,1))+F.pad(post_flow[0,3,:,1:],(0,1,0,0))+post_flow[0,4,:,:]+F.pad(post_flow[0,5,:,:-1],(1,0,0,0))+F.pad(post_flow[0,6,:-1,1:],(0,1,1,0))+F.pad(post_flow[0,7,:-1,:],(0,0,1,0))+F.pad(post_flow[0,8,:-1,:-1],(1,0,1,0))+post_flow[0,9,:,:]*mask_boundry
-
 
         loss_prev_flow = criterion(reconstruction_from_prev, target)
         loss_post_flow = criterion(reconstruction_from_post, target)

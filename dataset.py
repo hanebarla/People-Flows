@@ -1,14 +1,19 @@
+import json
 import os
 import random
+from matplotlib.pyplot import sci
 import torch
 import numpy as np
 from torch.utils.data import Dataset
 from PIL import Image
+import torchvision
 from image import *
 import torchvision.transforms.functional as F
 from torchvision import transforms
 import csv
 import cv2
+import scipy.io
+from scipy.ndimage.filters import gaussian_filter
 
 
 class listDataset(Dataset):
@@ -186,3 +191,48 @@ class CrowdDatasets(torch.utils.data.Dataset):
         # print("intpu min: {}".format(torch.min(input_img)))
 
         return input_img, mask_img
+
+
+class VeniceDataset(Dataset):
+    def __init__(self, pathjson=None, transform=None, width=640, height=360) -> None:
+        super().__init__()
+        with open(pathjson, "r") as f:
+            self.allpath = json.load(f)
+        self.transform = transform
+        self.width = width
+        self.height = height
+
+    def __len__(self) -> int:
+        return len(self.allpath)
+
+    def __getitem__(self, index: int):
+        prev_path = self.allpath[index]["prev"]
+        now_path = self.allpath[index]["now"]
+        next_path = self.allpath[index]["next"]
+        target_path = self.allpath[index]["target"]
+
+        prev_img = cv2.imread(prev_path)
+        prev_img = cv2.resize(prev_img, (self.width, self.height))
+        prev_img = prev_img / 255.0
+        prev_img = self.transform(prev_img)
+
+        now_img = cv2.imread(now_path)
+        now_img = cv2.resize(now_img, (self.width, self.height))
+        now_img = now_img / 255.0
+        now_img = self.transform(now_img)
+
+        next_img = cv2.imread(next_path)
+        next_img = cv2.resize(next_img, (self.width, self.height))
+        next_img = next_img / 255.0
+        next_img = self.transform(next_img)
+
+        target_dict = scipy.io.loadmat(target_path)
+        target = np.zeros((int(self.height/8), int(self.width/8)))
+
+        for p in range(target_dict['annotation'].shape[0]):
+            target[int(target_dict['annotation'][p][1]/16), int(target_dict['annotation'][p][0]/16)] = 1
+
+        target = gaussian_filter(target, 3) * 64
+        target = torch.from_numpy(target.astype(np.float32)).clone()
+
+        return prev_img, now_img, next_img, target
