@@ -106,7 +106,7 @@ def main():
 
     model = CANNet2s()
     if args.pretrained:
-        checkpoint = torch.load('venice_model_best.pth.tar')
+        checkpoint = torch.load('fdst.pth.tar')
         model.load_state_dict(fix_model_state_dict(checkpoint['state_dict']))
         try:
             best_prec1 = checkpoint['val']

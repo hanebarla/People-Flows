@@ -227,12 +227,13 @@ class VeniceDataset(Dataset):
         next_img = self.transform(next_img)
 
         target_dict = scipy.io.loadmat(target_path)
-        target = np.zeros((int(self.height/8), int(self.width/8)))
+        target = np.zeros((720, 1280))
 
         for p in range(target_dict['annotation'].shape[0]):
-            target[int(target_dict['annotation'][p][1]/16), int(target_dict['annotation'][p][0]/16)] = 1
+            target[int(target_dict['annotation'][p][1]), int(target_dict['annotation'][p][0])] = 1
 
         target = gaussian_filter(target, 3) * 64
+        target = cv2.resize(target, (80, 45))
         target = torch.from_numpy(target.astype(np.float32)).clone()
 
         return prev_img, now_img, next_img, target
