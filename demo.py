@@ -7,6 +7,8 @@ import torch
 import torch.nn.functional as F
 import torchvision
 import argparse
+
+from torchvision.transforms.functional import resize
 from utils import *
 import model
 from torchvision import transforms
@@ -16,7 +18,7 @@ from gradcam.utils import visualize_cam
 import scipy.io
 from scipy.ndimage.filters import gaussian_filter
 
-normal_path = "fdst.pth.tar"
+normal_path = "venice_model_best.pth.tar"
 direct_path = "checkpoint.pth.tar"
 
 
@@ -74,12 +76,13 @@ class Datapath():
             img = Image.open(now_path).convert('RGB')
 
             target_dict = scipy.io.loadmat(target_path)
-            target = np.zeros((int(360/8), int(640/8)))
+            target = np.zeros((720, 1280))
 
             for p in range(target_dict['annotation'].shape[0]):
-                target[int(target_dict['annotation'][p][1]/16), int(target_dict['annotation'][p][0]/16)] = 1
+                target[int(target_dict['annotation'][p][1]), int(target_dict['annotation'][p][0])] = 1
 
             target = gaussian_filter(target, 3) * 64
+            target = cv2.resize(target, (80, 45))
 
             return prev_img, img, target
 
@@ -121,21 +124,23 @@ def demo(args, start, end):
     D_gradcam_pp = FlowGradCAMpp(D_CANnet, D_target_layer)
 
     img_dict_keys = ['input',
-                     'fdst',
-                     'fdst_quiver',
-                     'fdst_GradCamPP',
-                     'venice',
-                     'venice_quiver',
-                     'venice_GradCamPP']
+                     'label',
+                     'best',
+                     'best_quiver',
+                     'best_GradCamPP',
+                     'checkpoint',
+                     'checkpoint_quiver',
+                     'checkpoint_GradCamPP']
 
     img_dict = {
         img_dict_keys[0]: ('img', None),
         img_dict_keys[1]: ('img', None),
-        img_dict_keys[2]: ('quiver', None),
-        img_dict_keys[3]: ('img', None),
+        img_dict_keys[2]: ('img', None),
+        img_dict_keys[3]: ('quiver', None),
         img_dict_keys[4]: ('img', None),
-        img_dict_keys[5]: ('quiver', None),
-        img_dict_keys[6]: ('img', None)
+        img_dict_keys[5]: ('img', None),
+        img_dict_keys[6]: ('quiver', None),
+        img_dict_keys[7]: ('img', None)
     }
 
     DemoImg = CompareOutput(img_dict_keys)
@@ -206,12 +211,13 @@ def demo(args, start, end):
 
         img_dict = {
             img_dict_keys[0]: ('img', input_num),
-            img_dict_keys[1]: ('img', normal_dense),
-            img_dict_keys[2]: ('quiver', normal_quiver),
-            img_dict_keys[3]: ('img', result_pp),
-            img_dict_keys[4]: ('img', direct_dense),
-            img_dict_keys[5]: ('quiver', direct_quiver),
-            img_dict_keys[6]: ('img', D_result_pp)
+            img_dict_keys[1]: ('img', target),
+            img_dict_keys[2]: ('img', normal_dense),
+            img_dict_keys[3]: ('quiver', normal_quiver),
+            img_dict_keys[4]: ('img', result_pp),
+            img_dict_keys[5]: ('img', direct_dense),
+            img_dict_keys[6]: ('quiver', direct_quiver),
+            img_dict_keys[7]: ('img', D_result_pp)
         }
 
         DemoImg.append_pred(img_dict)

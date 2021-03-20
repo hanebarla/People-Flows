@@ -14,6 +14,9 @@ import json
 import cv2
 import dataset
 import time
+import logging
+
+import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='PyTorch CANNet2s')
 
@@ -22,8 +25,10 @@ parser.add_argument('train_json', metavar='TRAIN',
 parser.add_argument('val_json', metavar='VAL',
                     help='path to val json')
 parser.add_argument('--dataset', default="FDST")
+parser.add_argument('--exp', default='.')
+parser.add_argument('--myloss', default='0.01')
 
-dloss_on = True
+dloss_on = False
 
 
 def dataset_factory(dlist, arguments, mode="train"):
@@ -67,7 +72,7 @@ def dataset_factory(dlist, arguments, mode="train"):
 
 
 def main():
-    global args, best_prec1
+    global args, best_prec1, dloss_on
 
     best_prec1 = 200
 
@@ -81,22 +86,29 @@ def main():
     args.epochs = 200
     args.workers = 8
     args.seed = int(time.time())
-    # args.print_freq = 400
-    args.print_freq = 10
-    args.pretrained = True
+    dloss_on = not (float(args.myloss) == 0)
+    args.pretrained = False
+
     if args.dataset  == "FDST":
+        args.print_freq = 400
         with open(args.train_json, 'r') as outfile:
             train_list = json.load(outfile)
         with open(args.val_json, 'r') as outfile:
             val_list = json.load(outfile)
     elif args.dataset == "CrowdFlow":
+        args.print_freq = 50
         train_list = args.train_json
         val_list = args.val_json
     elif args.dataset == "venice":
+        args.print_freq = 10
         train_list = args.train_json
         val_list = args.val_json
     else:
         raise ValueError
+    args.savefolder = os.path.join(args.exp, args.dataset + '_' + args.myloss)
+    if not os.path.exists(args.savefolder):
+        os.makedirs(args.savefolder)
+    # logging.basicConfig(filename=os.path.join(args.savefolder, 'train.log'), level=logging.DEBUG)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -136,7 +148,9 @@ def main():
         save_checkpoint({
             'state_dict': model.state_dict(),
             'val': prec1.item()
-        }, is_best, dataname=args.dataset)
+        }, is_best,
+            filename=os.path.join(args.savefolder, 'checkpoint.pth.tar'),
+            bestname=os.path.join(args.savefolder, 'model_best.pth.tar'))
 
 
 def train(train_list, model, criterion, optimizer, epoch, device):
@@ -223,7 +237,7 @@ def train(train_list, model, criterion, optimizer, epoch, device):
             loss_prev_inv_direct = criterion(prev_flow_inverse[0,0,1:,1:], prev_flow_inverse[0,0,1:,1:])+criterion(prev_flow_inverse[0,1,1:,:], prev_flow_inverse[0,1,:-1,:])+criterion(prev_flow_inverse[0,2,1:,:-1], prev_flow_inverse[0,2,:-1,1:])+criterion(prev_flow_inverse[0,3,:,1:], prev_flow_inverse[0,3,:,:-1])+criterion(prev_flow_inverse[0,4,:,:], prev_flow_inverse[0,4,:,:])+criterion(prev_flow_inverse[0,5,:,:-1], prev_flow_inverse[0,5,:,1:])+criterion(prev_flow_inverse[0,6,:-1,1:], prev_flow_inverse[0,6,1:,:-1])+criterion(prev_flow_inverse[0,7,:-1,:], prev_flow_inverse[0,7,1:,:])+criterion(prev_flow_inverse[0,8,:-1,:-1], prev_flow_inverse[0,8,1:,1:])
             loss_post_inv_direct = criterion(post_flow_inverse[0,0,1:,1:], post_flow_inverse[0,0,1:,1:])+criterion(post_flow_inverse[0,1,1:,:], post_flow_inverse[0,1,:-1,:])+criterion(post_flow_inverse[0,2,1:,:-1], post_flow_inverse[0,2,:-1,1:])+criterion(post_flow_inverse[0,3,:,1:], post_flow_inverse[0,3,:,:-1])+criterion(post_flow_inverse[0,4,:,:], post_flow_inverse[0,4,:,:])+criterion(post_flow_inverse[0,5,:,:-1], post_flow_inverse[0,5,:,1:])+criterion(post_flow_inverse[0,6,:-1,1:], post_flow_inverse[0,6,1:,:-1])+criterion(post_flow_inverse[0,7,:-1,:], post_flow_inverse[0,7,1:,:])+criterion(post_flow_inverse[0,8,:-1,:-1], post_flow_inverse[0,8,1:,1:])
 
-            loss += 0.1 *(loss_prev_direct + loss_post_direct + loss_prev_inv_direct + loss_post_direct)
+            loss += float(args.myloss) *(loss_prev_direct + loss_post_direct + loss_prev_inv_direct + loss_post_inv_direct)
 
         losses.update(loss.item(), img.size(0))
         optimizer.zero_grad()

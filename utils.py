@@ -25,10 +25,10 @@ def load_net(fname, net):
         for k, v in net.state_dict().items():
             param = torch.from_numpy(np.asarray(h5f[k]))
             v.copy_(param)
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar', dataname='fdst'):
+def save_checkpoint(state, is_best, filename='checkpoint.pth.tar', bestname='model_best.pth.tar'):
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, dataname + '_' + 'model_best.pth.tar')
+        shutil.copyfile(filename, bestname)
 def fix_model_state_dict(state_dict):
     new_state_dict = OrderedDict()
     for k, v in state_dict.items():
