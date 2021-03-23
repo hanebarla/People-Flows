@@ -260,10 +260,20 @@ def train(train_list, model, criterion, optimizer, epoch, device):
                   .format(
                    epoch, i, len(train_loader), batch_time=batch_time,
                    data_time=data_time, loss=losses))
+            with open(os.path.join(args.savefolder, 'log.txt'), mode='a') as f:
+                f.write('Epoch: [{0}][{1}/{2}]\t'
+                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                  'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
+                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t\n'
+                  .format(
+                   epoch, i, len(train_loader), batch_time=batch_time,
+                   data_time=data_time, loss=losses))
 
 def validate(val_list, model, criterion, device):
     global args
     print ('begin val')
+    with open(os.path.join(args.savefolder, 'log.txt'), mode='a') as f:
+        f.write('begin val\n')
     val_dataset = dataset_factory(val_list, args, mode="val")
     val_loader = torch.utils.data.DataLoader(
     val_dataset,
@@ -313,6 +323,9 @@ def validate(val_list, model, criterion, device):
 
     mae = mae/len(val_loader)
     print(' * MAE {mae:.3f} '
+              .format(mae=mae))
+    with open(os.path.join(args.savefolder, 'log.txt'), mode='a') as f:
+        f.write(' * MAE {mae:.3f} \n\n'
               .format(mae=mae))
 
     return mae
