@@ -64,7 +64,7 @@ if __name__ == '__main__':
         test_pathes["now"] = join(test_img_d, test_img_4895[i+1])
         test_pathes["next"] = join(test_img_d, test_img_4895[i+2])
         test_pathes["target"] = join(test_gt_d, test_img_4895[i+1])
-        test_all_path.append(train_pathes)
+        test_all_path.append(test_pathes)
 
     for i in range(len(test_img_4898) - 2):
         test_pathes = {}
@@ -72,7 +72,7 @@ if __name__ == '__main__':
         test_pathes["now"] = join(test_img_d, test_img_4898[i+1])
         test_pathes["next"] = join(test_img_d, test_img_4898[i+2])
         test_pathes["target"] = join(test_gt_d, test_img_4898[i+1])
-        test_all_path.append(train_pathes)
+        test_all_path.append(test_pathes)
 
     for i in range(len(test_img_4901) - 2):
         test_pathes = {}
@@ -80,7 +80,7 @@ if __name__ == '__main__':
         test_pathes["now"] = join(test_img_d, test_img_4901[i+1])
         test_pathes["next"] = join(test_img_d, test_img_4901[i+2])
         test_pathes["target"] = join(test_gt_d, test_img_4901[i+1])
-        test_all_path.append(train_pathes)
+        test_all_path.append(test_pathes)
 
     with open("venice_test.json", "w") as f:
         json.dump(test_all_path, f)
