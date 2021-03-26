@@ -23,7 +23,7 @@ if __name__ == '__main__':
 
     train_img_files = sorted(os.listdir(train_img_d))
     train_gt_files = sorted(os.listdir(train_gt_d))
-    test_img_files = sorted(os.listdir(test_gt_d))
+    test_img_files = sorted(os.listdir(test_img_d))
     test_gt_files = sorted(os.listdir(test_gt_d))
     print(list(map(del_exp, train_img_files)) == list(map(del_exp, train_gt_files)))
     print(list(map(del_exp, test_img_files)) == list(map(del_exp, test_gt_files)))
@@ -63,7 +63,7 @@ if __name__ == '__main__':
         test_pathes["prev"] = join(test_img_d, test_img_4895[i])
         test_pathes["now"] = join(test_img_d, test_img_4895[i+1])
         test_pathes["next"] = join(test_img_d, test_img_4895[i+2])
-        test_pathes["target"] = join(test_gt_d, test_img_4895[i+1])
+        test_pathes["target"] = join(test_gt_d, test_gt_4895[i+1])
         test_all_path.append(test_pathes)
 
     for i in range(len(test_img_4898) - 2):
@@ -71,7 +71,7 @@ if __name__ == '__main__':
         test_pathes["prev"] = join(test_img_d, test_img_4898[i])
         test_pathes["now"] = join(test_img_d, test_img_4898[i+1])
         test_pathes["next"] = join(test_img_d, test_img_4898[i+2])
-        test_pathes["target"] = join(test_gt_d, test_img_4898[i+1])
+        test_pathes["target"] = join(test_gt_d, test_gt_4898[i+1])
         test_all_path.append(test_pathes)
 
     for i in range(len(test_img_4901) - 2):
@@ -79,7 +79,7 @@ if __name__ == '__main__':
         test_pathes["prev"] = join(test_img_d, test_img_4901[i])
         test_pathes["now"] = join(test_img_d, test_img_4901[i+1])
         test_pathes["next"] = join(test_img_d, test_img_4901[i+2])
-        test_pathes["target"] = join(test_gt_d, test_img_4901[i+1])
+        test_pathes["target"] = join(test_gt_d, test_gt_4901[i+1])
         test_all_path.append(test_pathes)
 
     with open("venice_test.json", "w") as f:

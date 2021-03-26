@@ -83,11 +83,11 @@ def main():
     # args.decay         = 5*1e-4
     args.decay         = 1e-3
     args.start_epoch   = 0
-    args.epochs = 200
+    args.epochs = 30
     args.workers = 8
     args.seed = int(time.time())
     dloss_on = not (float(args.myloss) == 0)
-    args.pretrained = False
+    args.pretrained = True
 
     if args.dataset  == "FDST":
         args.print_freq = 400
@@ -116,7 +116,7 @@ def main():
 
     model = CANNet2s()
     if args.pretrained:
-        checkpoint = torch.load('checkpoint.pth.tar')
+        checkpoint = torch.load('fdst.pth.tar')
         model.load_state_dict(fix_model_state_dict(checkpoint['state_dict']))
         try:
             best_prec1 = checkpoint['val']
