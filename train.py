@@ -83,7 +83,7 @@ def main():
     # args.decay         = 5*1e-4
     args.decay         = 1e-3
     args.start_epoch   = 0
-    args.epochs = 30
+    args.epochs = 10
     args.workers = 8
     args.seed = int(time.time())
     dloss_on = not (float(args.myloss) == 0)
@@ -113,6 +113,9 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     torch.cuda.manual_seed(args.seed)
+
+    if os.path.exists(os.path.join(args.savefolder, 'log.txt')):
+        os.remove(os.path.join(args.savefolder, 'log.txt'))
 
     model = CANNet2s()
     if args.pretrained:
