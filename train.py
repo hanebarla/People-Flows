@@ -27,6 +27,7 @@ parser.add_argument('val_json', metavar='VAL',
 parser.add_argument('--dataset', default="FDST")
 parser.add_argument('--exp', default='.')
 parser.add_argument('--myloss', default='0.01')
+parser.add_argument('--start_epoch', default=0, type=int)
 
 dloss_on = False
 
@@ -80,14 +81,14 @@ def main():
     args.lr = 1e-4
     args.batch_size    = 1
     args.momentum      = 0.95
-    # args.decay         = 5*1e-4
-    args.decay         = 1e-3
-    args.start_epoch   = 0
-    args.epochs = 10
+    args.decay         = 5*1e-4
+    # args.decay         = 1e-3
+    # args.start_epoch   = 0
+    args.epochs = 200
     args.workers = 8
     args.seed = int(time.time())
     dloss_on = not (float(args.myloss) == 0)
-    args.pretrained = True
+    args.pretrained = True if args.start_epoch!=0 else False
 
     if args.dataset  == "FDST":
         args.print_freq = 400
@@ -114,12 +115,12 @@ def main():
 
     torch.cuda.manual_seed(args.seed)
 
-    if os.path.exists(os.path.join(args.savefolder, 'log.txt')):
+    if os.path.exists(os.path.join(args.savefolder, 'log.txt')) and args.start_epoch==0:
         os.remove(os.path.join(args.savefolder, 'log.txt'))
 
     model = CANNet2s()
     if args.pretrained:
-        checkpoint = torch.load('fdst.pth.tar')
+        checkpoint = torch.load(os.path.join(args.savefolder, 'checkpoint.pth.tar'))
         model.load_state_dict(fix_model_state_dict(checkpoint['state_dict']))
         try:
             best_prec1 = checkpoint['val']
