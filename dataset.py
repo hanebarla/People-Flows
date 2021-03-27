@@ -186,7 +186,7 @@ class CrowdDatasets(torch.utils.data.Dataset):
         mask_img = cv2.resize(mask_img, (self.out_width, self.out_height)) / 255  # width, height
 
         input_img = self.transform(input_img)
-        mask_img = transforms.ToTensor()(mask_img)
+        # mask_img = transforms.ToTensor()(mask_img)
         # print("input max: {}".format(torch.max(input_img)))
         # print("intpu min: {}".format(torch.min(input_img)))
 
