@@ -18,8 +18,8 @@ from gradcam.utils import visualize_cam
 import scipy.io
 from scipy.ndimage.filters import gaussian_filter
 
-normal_path = "venice_model_best.pth.tar"
-direct_path = "checkpoint.pth.tar"
+normal_path = "weights/0_checkpoint.pth.tar"
+direct_path = "weights/0.1_checkpoint.pth.tar"
 
 
 class Datapath():
@@ -125,12 +125,12 @@ def demo(args, start, end):
 
     img_dict_keys = ['input',
                      'label',
-                     'best',
-                     'best_quiver',
-                     'best_GradCamPP',
-                     'checkpoint',
-                     'checkpoint_quiver',
-                     'checkpoint_GradCamPP']
+                     '0',
+                     '0_quiver',
+                     '0_GradCamPP',
+                     '0.1',
+                     '0.1_quiver',
+                     '0.1_GradCamPP']
 
     img_dict = {
         img_dict_keys[0]: ('img', None),

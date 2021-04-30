@@ -97,7 +97,7 @@ def main():
         with open(args.val_json, 'r') as outfile:
             val_list = json.load(outfile)
     elif args.dataset == "CrowdFlow":
-        args.print_freq = 50
+        args.print_freq = 200
         train_list = args.train_json
         val_list = args.val_json
     elif args.dataset == "venice":
