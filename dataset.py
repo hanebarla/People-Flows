@@ -18,7 +18,8 @@ from scipy.ndimage.filters import gaussian_filter
 
 class listDataset(Dataset):
     def __init__(self, root, shape=None, shuffle=True, transform=None, train=False, batch_size=1, num_workers=4):
-        random.shuffle(root)
+        if train:
+            random.shuffle(root)
 
         self.nSamples = len(root)
         self.lines = root

@@ -18,7 +18,7 @@ from gradcam.utils import visualize_cam
 import scipy.io
 from scipy.ndimage.filters import gaussian_filter
 
-normal_path = "weights/0_checkpoint.pth.tar"
+normal_path = "weights/0.1_checkpoint.pth.tar"
 direct_path = "weights/0.1_checkpoint.pth.tar"
 
 
@@ -86,6 +86,17 @@ class Datapath():
 
             return prev_img, img, target
 
+        elif self.datakind == "animal":
+            prev_path = self.img_paths[index]["prev"]
+            now_path = self.img_paths[index]["now"]
+            next_path = self.img_paths[index]["next"]
+            target = None
+
+            prev_img = Image.open(prev_path).convert('RGB')
+            img = Image.open(now_path).convert('RGB')
+
+            return prev_img, img, target
+
 
 def demo(args, start, end):
     test_d_path = args.path
@@ -94,7 +105,7 @@ def demo(args, start, end):
     num = args.img_num
 
     # json file contains the test images
-    test_json_path = './venice_test.json'
+    test_json_path = './movie_data.json'
     # the floder to output density map and flow maps
     output_floder = './plot'
 
@@ -124,23 +135,14 @@ def demo(args, start, end):
     D_gradcam_pp = FlowGradCAMpp(D_CANnet, D_target_layer)
 
     img_dict_keys = ['input',
-                     'label',
-                     '0',
-                     '0_quiver',
-                     '0_GradCamPP',
-                     '0.1',
-                     '0.1_quiver',
-                     '0.1_GradCamPP']
+                     'pred',
+                     'pred_quiver',
+                     ]
 
     img_dict = {
         img_dict_keys[0]: ('img', None),
         img_dict_keys[1]: ('img', None),
-        img_dict_keys[2]: ('img', None),
-        img_dict_keys[3]: ('quiver', None),
-        img_dict_keys[4]: ('img', None),
-        img_dict_keys[5]: ('img', None),
-        img_dict_keys[6]: ('quiver', None),
-        img_dict_keys[7]: ('img', None)
+        img_dict_keys[2]: ('quiver', None),
     }
 
     DemoImg = CompareOutput(img_dict_keys)
@@ -181,19 +183,23 @@ def demo(args, start, end):
         result_pp = result_pp.to('cpu').detach().numpy().copy()
         result_pp = np.transpose(result_pp, (1, 2, 0))
         result_pp = cv2.resize(result_pp, (80, 45))
+
+        """
         D_mask_pp, _ = D_gradcam_pp((prev_img, img))
         D_heatmap_pp, D_result_pp = visualize_cam(D_mask_pp, torch_img)
         D_result_pp = D_result_pp.to('cpu').detach().numpy().copy()
         D_result_pp = np.transpose(D_result_pp, (1, 2, 0))
         D_result_pp = cv2.resize(D_result_pp, (80, 45))
-
+        """
 
         with torch.set_grad_enabled(False):
             output_normal = CANnet(prev_img, img)
             # output_normal = sigma(output_normal) - 0.5
 
+            """
             output_direct = D_CANnet(prev_img, img)
             # output_direct = sigma(output_direct) - 0.5
+            """
 
         input_num = prev_img[0, :, :, :].detach().cpu().numpy()
         input_num = input_num.transpose((1, 2, 0))
@@ -202,22 +208,19 @@ def demo(args, start, end):
         normal_quiver = NormalizeQuiver(normal_num)
         normal_num = normal_num.transpose((1, 2, 0))
 
+        """
         direct_num = output_direct[0, :, :, :].detach().cpu().numpy()
         direct_quiver = NormalizeQuiver(direct_num)
         direct_num = direct_num.transpose((1, 2, 0))
+        """
 
         normal_dense = tm_output_to_dense(normal_num)
-        direct_dense = tm_output_to_dense(direct_num)
-
+        # direct_dense = tm_output_to_dense(direct_num)
+        # print(np.any(np.isnan(input_num)))
         img_dict = {
             img_dict_keys[0]: ('img', input_num),
-            img_dict_keys[1]: ('img', target),
-            img_dict_keys[2]: ('img', normal_dense),
-            img_dict_keys[3]: ('quiver', normal_quiver),
-            img_dict_keys[4]: ('img', result_pp),
-            img_dict_keys[5]: ('img', direct_dense),
-            img_dict_keys[6]: ('quiver', direct_quiver),
-            img_dict_keys[7]: ('img', D_result_pp)
+            img_dict_keys[1]: ('img', normal_dense),
+            img_dict_keys[2]: ('quiver', normal_quiver),
         }
 
         DemoImg.append_pred(img_dict)
@@ -244,5 +247,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    for i in range(1):
-        demo(args, i*10, i+10)
+    for i in range(1, 2):
+        demo(args, i*10, (i+1)*10)

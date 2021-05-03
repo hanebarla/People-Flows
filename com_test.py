@@ -97,6 +97,9 @@ def main():
     elif args.dataset == "venice":
         train_list = args.train_json
         val_list = args.val_json
+    elif args.dataset == "other":
+        train_list = args.train_json
+        val_list = args.val_json
     else:
         raise ValueError
 
