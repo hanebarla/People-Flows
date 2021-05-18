@@ -1,5 +1,5 @@
 import os
-from model import CANNet2s
+from model import CANNet2s, SimpleCNN
 from utils import save_checkpoint, fix_model_state_dict
 
 import torch
@@ -28,6 +28,7 @@ parser.add_argument('--dataset', default="FDST")
 parser.add_argument('--exp', default='.')
 parser.add_argument('--myloss', default='0.01')
 parser.add_argument('--start_epoch', default=0, type=int)
+parser.add_argument('--trainmodel', default="CAN")
 
 dloss_on = False
 
@@ -118,7 +119,11 @@ def main():
     if os.path.exists(os.path.join(args.savefolder, 'log.txt')) and args.start_epoch==0:
         os.remove(os.path.join(args.savefolder, 'log.txt'))
 
-    model = CANNet2s()
+    if args.trainmodel == "CAN":
+        model = CANNet2s()
+    elif args.trainmodel == "SimpleCNN":
+        model = SimpleCNN()
+
     if args.pretrained:
         checkpoint = torch.load(os.path.join(args.savefolder, 'checkpoint.pth.tar'))
         model.load_state_dict(fix_model_state_dict(checkpoint['state_dict']))

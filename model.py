@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch
 from torch.nn import functional as F
+from torch.nn.common_types import T
 from torchvision import models
 from utils import save_net,load_net
 from gradcam import GradCAM
@@ -72,7 +73,7 @@ class CANNet2s(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
-def make_layers(cfg, in_channels = 3,batch_norm=False,dilation = False):
+def make_layers(cfg, in_channels=3, batch_norm=False, dilation=False):
     if dilation:
         d_rate = 2
     else:
@@ -126,3 +127,42 @@ class CANnetGradCAM(GradCAM):
         saliency_map = (saliency_map-saliency_map_min).div(saliency_map_max-saliency_map_min).data
 
         return saliency_map, logit
+
+
+class SimpleCNN(nn.Module):
+    def __init__(self, load_model=False):
+        super().__init__()
+        self.froted = nn.Sequential(
+            nn.Conv2d(3, 64, 3, 2, 1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 64, 3, 2, 1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+        )
+        self.outlayer = nn.Sequential(
+            nn.Conv2d(128, 10, 3, 2, 1),
+            nn.ReLU(inplace=True)
+        )
+
+        if not load_model:
+            self._init_weight()
+
+    def forward(self, prev_x, x):
+        prev_x = self.froted(prev_x)
+        x = self.froted(x)
+
+        mid_x = torch.cat((prev_x, x), 1)
+        y = self.outlayer(mid_x)
+
+        return y
+
+    def _init_weight(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.normal_(m.weight, std=0.01)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
