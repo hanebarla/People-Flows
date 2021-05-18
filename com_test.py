@@ -24,6 +24,7 @@ parser.add_argument('train_json', metavar='TRAIN',
 parser.add_argument('val_json', metavar='VAL',
                     help='path to val json')
 parser.add_argument('--dataset', default="FDST")
+parser.add_argument('--load_model', default="checkpoint.pth.tar")
 
 dloss_on = True
 
@@ -109,7 +110,7 @@ def main():
 
     model = CANNet2s()
     if args.pretrained:
-        checkpoint = torch.load('checkpoint.pth.tar')
+        checkpoint = torch.load(str(args.load_model))
         model.load_state_dict(fix_model_state_dict(checkpoint['state_dict']))
         try:
             best_prec1 = checkpoint['val']

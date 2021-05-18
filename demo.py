@@ -119,10 +119,10 @@ def demo(args, start, end):
     CANnet.load_state_dict(fix_model_state_dict(torch.load(normal_weights)['state_dict']))
     CANnet.eval()
 
-    D_CANnet = model.CANNet2s()
-    D_CANnet.to(device)
-    D_CANnet.load_state_dict(fix_model_state_dict(torch.load(direct_weights)['state_dict']))
-    D_CANnet.eval()
+    # D_CANnet = model.CANNet2s()
+    # D_CANnet.to(device)
+    # D_CANnet.load_state_dict(fix_model_state_dict(torch.load(direct_weights)['state_dict']))
+    # D_CANnet.eval()
 
     transform = transforms.Compose([
         transforms.ToTensor(),
@@ -131,18 +131,20 @@ def demo(args, start, end):
 
     target_layer = CANnet.frontend
     gradcam_pp = FlowGradCAMpp(CANnet, target_layer)
-    D_target_layer = D_CANnet.frontend
-    D_gradcam_pp = FlowGradCAMpp(D_CANnet, D_target_layer)
+    # D_target_layer = D_CANnet.frontend
+    # D_gradcam_pp = FlowGradCAMpp(D_CANnet, D_target_layer)
 
     img_dict_keys = ['input',
                      'pred',
                      'pred_quiver',
+                     'GradCAM'
                      ]
 
     img_dict = {
         img_dict_keys[0]: ('img', None),
         img_dict_keys[1]: ('img', None),
         img_dict_keys[2]: ('quiver', None),
+        img_dict_keys[3]: ('img', None)
     }
 
     DemoImg = CompareOutput(img_dict_keys)
@@ -203,6 +205,7 @@ def demo(args, start, end):
 
         input_num = prev_img[0, :, :, :].detach().cpu().numpy()
         input_num = input_num.transpose((1, 2, 0))
+        input_num = input_num * np.array([0.229, 0.224, 0.225]) + np.array([0.485, 0.456, 0.406])
 
         normal_num = output_normal[0, :, :, :].detach().cpu().numpy()
         normal_quiver = NormalizeQuiver(normal_num)
@@ -221,14 +224,23 @@ def demo(args, start, end):
             img_dict_keys[0]: ('img', input_num),
             img_dict_keys[1]: ('img', normal_dense),
             img_dict_keys[2]: ('quiver', normal_quiver),
+            img_dict_keys[3]: ('img', result_pp)
         }
 
         DemoImg.append_pred(img_dict)
 
-        print("{} / {} done\r".format((i+1), num), end="")
+        del CANnet
+        # del D_CANnet
+        del img
+        del prev_img
+        del output_normal
+
+        plt.close()
+
+        # print("{} / {} done\r".format((i+1), num), end="")
 
     DemoImg.plot_img()
-    DemoImg.save_fig(name='images/demo-{}.png'.format(int(start/10)))
+    DemoImg.save_fig(name='Demo/demo-{}.png'.format(int(start)))
 
 
 if __name__ == "__main__":
@@ -246,6 +258,14 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', default="FDST")
 
     args = parser.parse_args()
+    with open(args.path, "r") as f:
+        pathes = json.load(f)
 
-    for i in range(1, 2):
-        demo(args, i*10, (i+1)*10)
+    # len(pathes)
+    print(len(pathes))
+    for i in range(len(pathes)):
+        try:
+            demo(args, i, i+1)
+        except Exception as e:
+            print("{} is Error".format(i))
+            print(e)

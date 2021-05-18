@@ -67,7 +67,7 @@ class CompareOutput():
 
     def _set_img(self):
         self.img_height = len(self.losses_dict['input'])
-        self.figure = plt.figure(figsize=(self.img_height * 4, self.img_width * 5))
+        self.figure = plt.figure(figsize=(self.img_width * 5, self.img_height * 4))
         for h in range(self.img_height):
             temp_ax = []
             for w in range(self.img_width):
@@ -87,7 +87,7 @@ class CompareOutput():
                     self.axes[h][w].set_title(k, fontsize=18)
 
                 if content[0] == 'img':
-                    self.axes[h][w].imshow(content[1])
+                    self.axes[h][w].imshow(content[1], cmap="jet")
                 else:
                     # colors = -np.arctan2(content[1][2], content[1][3])
                     colors = np.sqrt(content[1][2] * content[1][2] + content[1][3] * content[1][3])
