@@ -18,8 +18,8 @@ from gradcam.utils import visualize_cam
 import scipy.io
 from scipy.ndimage.filters import gaussian_filter
 
-normal_path = "weights/0.1_checkpoint.pth.tar"
-direct_path = "weights/0.1_checkpoint.pth.tar"
+normal_path = "weights/model_best.pth.tar"
+direct_path = "weights/model_best.pth.tar"
 
 
 class Datapath():

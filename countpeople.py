@@ -55,7 +55,8 @@ def dataset_factory(dlist, arguments, mode="train"):
                                          transforms.ToTensor(),
                                          transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                          std=[0.229, 0.224, 0.225]),
-                                     ])
+                                     ],),
+                                     test_on=True
                                      )
     elif arguments.dataset == "venice":
         return dataset.VeniceDataset(dlist,
@@ -69,7 +70,7 @@ def dataset_factory(dlist, arguments, mode="train"):
         raise ValueError
 
 
-def main():
+if __name__ == "__main__":
     global args, best_prec1
 
     best_prec1 = 200
@@ -122,33 +123,18 @@ def main():
         model = torch.nn.DataParallel(model)
     model.to(device)
 
-    criterion = nn.MSELoss(size_average=False)
-
-    torch.backends.cudnn.benchmark = True
-
-    mae, rsme = validate(val_list, model, criterion, device)
-
-    print(' * best MAE {mae:.3f} \n best RMSE {rsme:.3f}'
-          .format(mae=mae, rsme=rsme))
-
-def validate(val_list, model, criterion, device):
-    global args
-    print ('begin val')
     val_dataset = dataset_factory(val_list, args, mode="val")
     val_loader = torch.utils.data.DataLoader(
-    val_dataset,
-    batch_size=1)
+        val_dataset,
+        batch_size=1
+    )
 
-    model.eval()
-
-    mae = 0
-    rmse = 0
-
-    pred= []
-    gt = []
+    gt_num = []
+    gt_max = []
+    pred_num = []
+    pred_max = []
 
     for i,(prev_img, img, post_img, target) in enumerate(val_loader):
-        # only use previous frame in inference time, as in real-time application scenario, future frame is not available
         prev_img = prev_img.to(device, dtype=torch.float)
         prev_img = Variable(prev_img)
 
@@ -174,17 +160,15 @@ def validate(val_list, model, criterion, device):
 
         overall = ((reconstruction_from_prev+reconstruction_from_prev_inverse)/2.0).type(torch.FloatTensor)
 
-        target = target.detach().numpy().copy()
-        pred_sum = overall.sum()
-        pred.append(pred_sum)
-        gt.append(np.sum(target))
 
-    print("pred: {}".format(np.array(pred)))
-    print("target: {}".format(np.array(gt)))
-    mae = mean_absolute_error(pred,gt)
-    rmse = np.sqrt(mean_squared_error(pred,gt))
+        gt_num.append(torch.sum(target).item())
+        gt_max.append(torch.max(target).item())
+        pred_num.append(torch.sum(overall).item())
+        pred_max.append(torch.max(target).item())
 
-    return mae, rmse
-
-if __name__ == "__main__":
-    main()
+    gt_ave = np.mean(np.array(gt_num))
+    pred_ave = np.mean(np.array(pred_num))
+    gt_max_ave = np.mean(np.array(gt_max))
+    pred_max_ave = np.mean(np.array(pred_max))
+    print("GT Num average: {}".format(gt_ave * (1 / gt_max_ave)))
+    print("Pred Num average: {}".format(pred_ave * (1 / pred_max_ave)))

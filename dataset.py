@@ -101,8 +101,8 @@ class CrowdDatasets(torch.utils.data.Dataset):
         tm_input, tm_person = self.gt_img_density(t_m_img_path, t_m_person_path)
         tp_input, tp_person = self.gt_img_density(t_p_img_path, t_p_person_path)
 
-        tm2t_flow = self.gt_flow(t_m_t_flow_path)
-        t2tp_flow = self.gt_flow(t_t_p_flow_path)
+        # tm2t_flow = self.gt_flow(t_m_t_flow_path)
+        # t2tp_flow = self.gt_flow(t_t_p_flow_path)
 
         return tm_input, t_input, tp_input, t_person
 
@@ -184,7 +184,8 @@ class CrowdDatasets(torch.utils.data.Dataset):
         mask_img = np.reshape(mask_img, (mask_img.shape[0], mask_img.shape[1], 1))
 
         input_img = input_img / 255  # range [0:1]
-        mask_img = cv2.resize(mask_img, (self.out_width, self.out_height)) / 255  # width, height
+        mask_img = mask_img / 255
+        mask_img = cv2.resize(mask_img, (self.out_width, self.out_height), interpolation=cv2.INTER_CUBIC)  # width, height
 
         input_img = self.transform(input_img)
         # mask_img = transforms.ToTensor()(mask_img)
