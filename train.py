@@ -1,4 +1,5 @@
 import os
+from random import shuffle
 from model import CANNet2s, SimpleCNN
 from utils import save_checkpoint, fix_model_state_dict
 
@@ -172,7 +173,8 @@ def train(train_list, model, criterion, optimizer, epoch, device):
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=args.batch_size)
+        batch_size=args.batch_size,
+        shuffle=True)
     print('epoch %d, processed %d samples, lr %.10f' % (epoch, epoch * len(train_loader.dataset), args.lr))
 
     model.train()

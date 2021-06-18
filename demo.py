@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 import torchvision
 import argparse
+import csv
 
 from torchvision.transforms.functional import resize
 from utils import *
@@ -18,14 +19,19 @@ from gradcam.utils import visualize_cam
 import scipy.io
 from scipy.ndimage.filters import gaussian_filter
 
-normal_path = "weights/model_best.pth.tar"
+normal_path = "CrowdFlow_weight/0.1_checkpoint.pth.tar"
 direct_path = "weights/model_best.pth.tar"
 
 
 class Datapath():
     def __init__(self, json_path=None, datakind=None) -> None:
-        with open(json_path, 'r') as outfile:
-            self.img_paths = json.load(outfile)
+        if datakind == "CrowdFlow":
+            with open(json_path) as f:
+                reader = csv.reader(f)
+                self.img_paths = [row for row in reader]
+        else:
+            with open(json_path, 'r') as outfile:
+                self.img_paths = json.load(outfile)
         self.datakind = datakind
 
     def __getitem__(self, index):
@@ -109,7 +115,7 @@ def demo(args, start, end):
     # the floder to output density map and flow maps
     output_floder = './plot'
 
-    img_paths = Datapath(test_json_path, args.dataset)
+    img_paths = Datapath(args.path, args.dataset)
 
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -137,14 +143,16 @@ def demo(args, start, end):
     img_dict_keys = ['input',
                      'pred',
                      'pred_quiver',
-                     'GradCAM'
+                     'GradCAM',
+                     'Opitcal flow'
                      ]
 
     img_dict = {
         img_dict_keys[0]: ('img', None),
         img_dict_keys[1]: ('img', None),
         img_dict_keys[2]: ('quiver', None),
-        img_dict_keys[3]: ('img', None)
+        img_dict_keys[3]: ('img', None),
+        img_dict_keys[4]: ('quiver', None)
     }
 
     DemoImg = CompareOutput(img_dict_keys)
@@ -224,7 +232,8 @@ def demo(args, start, end):
             img_dict_keys[0]: ('img', input_num),
             img_dict_keys[1]: ('img', normal_dense),
             img_dict_keys[2]: ('quiver', normal_quiver),
-            img_dict_keys[3]: ('img', result_pp)
+            img_dict_keys[3]: ('img', result_pp),
+            img_dict_keys[4]: ('quiver', OF_quiver)
         }
 
         DemoImg.append_pred(img_dict)
@@ -237,8 +246,9 @@ def demo(args, start, end):
 
         plt.close()
 
-        # print("{} / {} done\r".format((i+1), num), end="")
+        print("{} done\n".format((i+1)), end="")
 
+    print(len(DemoImg.losses_dict['input']))
     DemoImg.plot_img()
     DemoImg.save_fig(name='Demo/demo-{}.png'.format(int(start)))
 
@@ -258,14 +268,20 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', default="FDST")
 
     args = parser.parse_args()
-    with open(args.path, "r") as f:
-        pathes = json.load(f)
+
+    if args.dataset == "CrowdFlow":
+        with open(args.path) as f:
+            reader = csv.reader(f)
+            pathes = [row for row in reader]
+    else:
+        with open(args.path, "r") as f:
+            pathes = json.load(f)
 
     # len(pathes)
     print(len(pathes))
     for i in range(len(pathes)):
-        try:
-            demo(args, i, i+1)
-        except Exception as e:
-            print("{} is Error".format(i))
-            print(e)
+        # try:
+        demo(args, i, i+1)
+        # except Exception as e:
+            # print("{} is Error".format(i))
+            # print(e)

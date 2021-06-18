@@ -92,7 +92,10 @@ class CompareOutput():
                     # colors = -np.arctan2(content[1][2], content[1][3])
                     colors = np.sqrt(content[1][2] * content[1][2] + content[1][3] * content[1][3])
                     v_length = colors.copy()
+                    # try:
                     self.norm.autoscale(colors)
+                    # except:
+                        # pass
                     self.axes[h][w].quiver(content[1][0],
                                            content[1][1],
                                            content[1][2] / v_length,
@@ -107,6 +110,7 @@ class CompareOutput():
 
     def save_fig(self, name='images/demo.png'):
         self.figure.savefig(name, dpi=300)
+        print("Save {}".format(name))
 
 
 def tm_output_to_dense(output):
@@ -133,7 +137,7 @@ def output_to_img(output):
         # std = np.std(out)
         print("{} max: {}".format(ChannelToLocation[i], np.max(out)))
         print("{} min: {}".format(ChannelToLocation[i], np.min(out)))
-        heatmap = np.array(255*(out/o_max), dtype=np.uint8)
+        heatmap = np.array(255*(out/o_max))
 
         if i == 0:
             heats_u -= heatmap/255/np.sqrt(2)
@@ -168,40 +172,45 @@ def output_to_img(output):
 
 
 def NormalizeQuiver(output):
-    output_num = output
+    output_num = output.copy()
+    output_num[output_num > 2] = 2
 
     o_max = np.max(output_num)
     heats_u = np.zeros_like(output_num[0, :, :])
     heats_v = np.zeros_like(output_num[0, :, :])
 
+    print("output max: {}".format(o_max))
+    print("output min: {}".format(np.min(output_num)))
+    print("ArgMax: {}".format(np.argmax(output_num, axis=0)))
+    print("Argmax mean: {}".format(np.sum(output_num, axis=(1, 2))))
+
     for i in range(9):
-        out = output_num[i, :, :]
+        heatmap = output_num[i, :, :]
         # mean = np.mean(out)
         # std = np.std(out)
         # print("{} max: {}".format(ChannelToLocation[i], np.max(out)))
-        # print("{} min: {}".format(ChannelToLocation[i], np.min(out)))
-        heatmap = np.array(255*(out/o_max), dtype=np.uint8)
+        # print("{} min: {}".format(ChannelToLocation[i], np.min(out))
 
         if i == 0:
-            heats_u -= heatmap/(255 * np.sqrt(2))
-            heats_v += heatmap/(255 * np.sqrt(2))
+            heats_u -= heatmap/np.sqrt(2)
+            heats_v += heatmap/np.sqrt(2)
         elif i == 1:
-            heats_v += heatmap/255
+            heats_v += heatmap
         elif i == 2:
-            heats_u += heatmap/(255 * np.sqrt(2))
-            heats_v += heatmap/(255 * np.sqrt(2))
+            heats_u += heatmap/np.sqrt(2)
+            heats_v += heatmap/np.sqrt(2)
         elif i == 3:
-            heats_u -= heatmap/255
+            heats_u -= heatmap
         elif i == 5:
-            heats_u += heatmap/255
+            heats_u += heatmap
         elif i == 6:
-            heats_u -= heatmap/(255 * np.sqrt(2))
-            heats_v -= heatmap/(255 * np.sqrt(2))
+            heats_u -= heatmap/np.sqrt(2)
+            heats_v -= heatmap/np.sqrt(2)
         elif i == 7:
-            heats_v -= heatmap/255
+            heats_v -= heatmap
         elif i == 8:
-            heats_u += heatmap/(255 * np.sqrt(2))
-            heats_v -= heatmap/(255 * np.sqrt(2))
+            heats_u += heatmap/np.sqrt(2)
+            heats_v -= heatmap/np.sqrt(2)
 
     x, y = heats_u.shape[0], heats_u.shape[1]
     imX = np.zeros_like(heats_u)
@@ -222,6 +231,7 @@ def NormalizeQuiver(output):
     # cut_lengs = np.sqrt(heats_u_cut * heats_u_cut + heats_v_cut * heats_v_cut)
     # heats_u_cut = heats_u_cut / cut_lengs
     # heats_v_cut = heats_v_cut / cut_lengs
+    print(imX.shape)
 
     return (imY, imX, heats_u_cut, heats_v_cut)
 
