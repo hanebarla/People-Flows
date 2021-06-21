@@ -140,7 +140,8 @@ def main():
     model.to(device)
     best_prec1 = 23.702
 
-    criterion = nn.MSELoss(size_average=False)
+    # criterion = nn.MSELoss(size_average=False)
+    criterion = nn.MSELoss(reduction='sum')
 
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.decay)
 
@@ -177,6 +178,7 @@ def train(train_list, model, criterion, optimizer, epoch, device):
         shuffle=True)
     print('epoch %d, processed %d samples, lr %.10f' % (epoch, epoch * len(train_loader.dataset), args.lr))
 
+    mae = 0
     model.train()
     end = time.time()
 
@@ -250,6 +252,10 @@ def train(train_list, model, criterion, optimizer, epoch, device):
 
             loss += float(args.myloss) *(loss_prev_direct + loss_post_direct + loss_prev_inv_direct + loss_post_inv_direct)
 
+        # MAE
+        overall = ((reconstruction_from_prev+reconstruction_from_prev_inverse)/2.0).type(torch.FloatTensor)
+        mae += abs(overall.data.sum()-target.sum())
+
         losses.update(loss.item(), img.size(0))
         optimizer.zero_grad()
         loss.backward()
@@ -279,6 +285,15 @@ def train(train_list, model, criterion, optimizer, epoch, device):
                   .format(
                    epoch, i, len(train_loader), batch_time=batch_time,
                    data_time=data_time, loss=losses))
+
+    mae = mae/len(train_loader)
+    print(' * Train MAE {mae:.3f} '
+              .format(mae=mae))
+    print(' * Train loss {loss:.3f} '
+              .format(loss=losses.avg))
+    with open(os.path.join(args.savefolder, 'log.txt'), mode='a') as f:
+        f.write(' * Train MAE {mae:.3f} \n\n'
+              .format(mae=mae))
 
 def validate(val_list, model, criterion, device):
     global args
@@ -333,10 +348,10 @@ def validate(val_list, model, criterion, device):
         del target
 
     mae = mae/len(val_loader)
-    print(' * MAE {mae:.3f} '
+    print(' * Val MAE {mae:.3f} '
               .format(mae=mae))
     with open(os.path.join(args.savefolder, 'log.txt'), mode='a') as f:
-        f.write(' * MAE {mae:.3f} \n\n'
+        f.write(' * Val MAE {mae:.3f} \n\n'
               .format(mae=mae))
 
     return mae

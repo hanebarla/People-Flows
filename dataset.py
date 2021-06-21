@@ -184,7 +184,7 @@ class CrowdDatasets(torch.utils.data.Dataset):
         mask_img = np.reshape(mask_img, (mask_img.shape[0], mask_img.shape[1], 1))
 
         input_img = input_img / 255  # range [0:1]
-        mask_img = mask_img / 255
+        mask_img = mask_img / np.max(mask_img)
         mask_img = cv2.resize(mask_img, (self.out_width, self.out_height), interpolation=cv2.INTER_CUBIC)  # width, height
 
         input_img = self.transform(input_img)
