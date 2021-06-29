@@ -30,6 +30,7 @@ parser.add_argument('--exp', default='.')
 parser.add_argument('--myloss', default='0.01')
 parser.add_argument('--start_epoch', default=0, type=int)
 parser.add_argument('--trainmodel', default="CAN")
+parser.add_argument('--decay', default=5e-4, type=float)
 
 dloss_on = False
 
@@ -83,7 +84,7 @@ def main():
     args.lr = 1e-4
     args.batch_size    = 1
     args.momentum      = 0.95
-    args.decay         = 5*1e-4
+    # args.decay         = 5*1e-4
     # args.decay         = 1e-3
     # args.start_epoch   = 0
     args.epochs = 200
