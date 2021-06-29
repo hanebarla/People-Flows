@@ -108,7 +108,7 @@ def main():
         val_list = args.val_json
     else:
         raise ValueError
-    args.savefolder = os.path.join(args.exp, args.dataset + '_' + args.myloss)
+    args.savefolder = os.path.join(args.exp, args.dataset + '_' + args.myloss + '_' + args.decay)
     if not os.path.exists(args.savefolder):
         os.makedirs(args.savefolder)
     # logging.basicConfig(filename=os.path.join(args.savefolder, 'train.log'), level=logging.DEBUG)

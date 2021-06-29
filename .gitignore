@@ -12,3 +12,5 @@ GradCAM/
 /weights
 /Demo
 /CrowdFlow_weight
+*.tar.gz
+/CrowdFlow*

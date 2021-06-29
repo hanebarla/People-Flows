@@ -19,7 +19,7 @@ from gradcam.utils import visualize_cam
 import scipy.io
 from scipy.ndimage.filters import gaussian_filter
 
-normal_path = "CrowdFlow_weight/0.1_checkpoint.pth.tar"
+normal_path = "CrowdFlow_0.1/checkpoint.pth.tar"
 direct_path = "weights/model_best.pth.tar"
 
 

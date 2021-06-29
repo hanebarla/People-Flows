@@ -106,9 +106,9 @@ if __name__ == "__main__":
         raise ValueError
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
     torch.cuda.manual_seed(args.seed)
 
+    # model load
     model = CANNet2s()
     if args.pretrained:
         checkpoint = torch.load(str(args.load_model))
@@ -118,6 +118,7 @@ if __name__ == "__main__":
         except KeyError:
             print("No Key: val")
 
+    # multi gpu
     if torch.cuda.device_count() > 1:
         print("You can use {} GPUs!".format(torch.cuda.device_count()))
         model = torch.nn.DataParallel(model)
@@ -142,8 +143,8 @@ if __name__ == "__main__":
         img = Variable(img)
 
         with torch.no_grad():
-            prev_flow = model(prev_img,img)
-            prev_flow_inverse = model(img,prev_img)
+            prev_flow = model(prev_img, img)
+            prev_flow_inverse = model(img, prev_img)
 
         mask_boundry = torch.zeros(prev_flow.shape[2:])
         mask_boundry[0,:] = 1.0
@@ -155,7 +156,6 @@ if __name__ == "__main__":
 
 
         reconstruction_from_prev = F.pad(prev_flow[0,0,1:,1:],(0,1,0,1))+F.pad(prev_flow[0,1,1:,:],(0,0,0,1))+F.pad(prev_flow[0,2,1:,:-1],(1,0,0,1))+F.pad(prev_flow[0,3,:,1:],(0,1,0,0))+prev_flow[0,4,:,:]+F.pad(prev_flow[0,5,:,:-1],(1,0,0,0))+F.pad(prev_flow[0,6,:-1,1:],(0,1,1,0))+F.pad(prev_flow[0,7,:-1,:],(0,0,1,0))+F.pad(prev_flow[0,8,:-1,:-1],(1,0,1,0))+prev_flow[0,9,:,:]*mask_boundry
-
         reconstruction_from_prev_inverse = torch.sum(prev_flow_inverse[0,:9,:,:],dim=0)+prev_flow_inverse[0,9,:,:]*mask_boundry
 
         overall = ((reconstruction_from_prev+reconstruction_from_prev_inverse)/2.0).type(torch.FloatTensor)

@@ -87,6 +87,8 @@ def main():
     # args.print_freq = 400
     args.print_freq = 10
     args.pretrained = True
+
+    # choose dataset
     if args.dataset  == "FDST":
         with open(args.train_json, 'r') as outfile:
             train_list = json.load(outfile)
@@ -105,9 +107,9 @@ def main():
         raise ValueError
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
     torch.cuda.manual_seed(args.seed)
 
+    # load model
     model = CANNet2s()
     if args.pretrained:
         checkpoint = torch.load(str(args.load_model))
@@ -117,6 +119,7 @@ def main():
         except KeyError:
             print("No Key: val")
 
+    # multi gpu
     if torch.cuda.device_count() > 1:
         print("You can use {} GPUs!".format(torch.cuda.device_count()))
         model = torch.nn.DataParallel(model)
@@ -131,23 +134,24 @@ def main():
     print(' * best MAE {mae:.3f} \n best RMSE {rsme:.3f}'
           .format(mae=mae, rsme=rsme))
 
+
 def validate(val_list, model, criterion, device):
     global args
-    print ('begin val')
+    print('begin val')
     val_dataset = dataset_factory(val_list, args, mode="val")
     val_loader = torch.utils.data.DataLoader(
-    val_dataset,
-    batch_size=1)
+        val_dataset,
+        batch_size=1)
 
     model.eval()
 
     mae = 0
     rmse = 0
 
-    pred= []
+    pred = []
     gt = []
 
-    for i,(prev_img, img, post_img, target) in enumerate(val_loader):
+    for i, (prev_img, img, post_img, target) in enumerate(val_loader):
         # only use previous frame in inference time, as in real-time application scenario, future frame is not available
         prev_img = prev_img.to(device, dtype=torch.float)
         prev_img = Variable(prev_img)
@@ -156,8 +160,8 @@ def validate(val_list, model, criterion, device):
         img = Variable(img)
 
         with torch.no_grad():
-            prev_flow = model(prev_img,img)
-            prev_flow_inverse = model(img,prev_img)
+            prev_flow = model(prev_img, img)
+            prev_flow_inverse = model(img, prev_img)
 
         mask_boundry = torch.zeros(prev_flow.shape[2:])
         mask_boundry[0,:] = 1.0
@@ -167,9 +171,7 @@ def validate(val_list, model, criterion, device):
 
         mask_boundry = Variable(mask_boundry.cuda())
 
-
         reconstruction_from_prev = F.pad(prev_flow[0,0,1:,1:],(0,1,0,1))+F.pad(prev_flow[0,1,1:,:],(0,0,0,1))+F.pad(prev_flow[0,2,1:,:-1],(1,0,0,1))+F.pad(prev_flow[0,3,:,1:],(0,1,0,0))+prev_flow[0,4,:,:]+F.pad(prev_flow[0,5,:,:-1],(1,0,0,0))+F.pad(prev_flow[0,6,:-1,1:],(0,1,1,0))+F.pad(prev_flow[0,7,:-1,:],(0,0,1,0))+F.pad(prev_flow[0,8,:-1,:-1],(1,0,1,0))+prev_flow[0,9,:,:]*mask_boundry
-
         reconstruction_from_prev_inverse = torch.sum(prev_flow_inverse[0,:9,:,:],dim=0)+prev_flow_inverse[0,9,:,:]*mask_boundry
 
         overall = ((reconstruction_from_prev+reconstruction_from_prev_inverse)/2.0).type(torch.FloatTensor)
@@ -178,6 +180,7 @@ def validate(val_list, model, criterion, device):
         pred_sum = overall.sum()
         pred.append(pred_sum)
         gt.append(np.sum(target))
+
 
     print("pred: {}".format(np.array(pred)))
     print("target: {}".format(np.array(gt)))
