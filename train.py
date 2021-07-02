@@ -87,7 +87,7 @@ def main():
     # args.decay         = 5*1e-4
     # args.decay         = 1e-3
     # args.start_epoch   = 0
-    args.epochs = 200
+    args.epochs = 30
     args.workers = 8
     args.seed = int(time.time())
     dloss_on = not (float(args.myloss) == 0)
@@ -109,7 +109,7 @@ def main():
         val_list = args.val_json
     else:
         raise ValueError
-    args.savefolder = os.path.join(args.exp, args.dataset + '_' + args.myloss + '_' + args.decay)
+    args.savefolder = os.path.join(args.exp, args.dataset + '_' + args.myloss + '_' + str(args.decay))
     if not os.path.exists(args.savefolder):
         os.makedirs(args.savefolder)
     # logging.basicConfig(filename=os.path.join(args.savefolder, 'train.log'), level=logging.DEBUG)
@@ -144,7 +144,7 @@ def main():
     # criterion = nn.MSELoss(size_average=False)
     criterion = nn.MSELoss(reduction='sum')
 
-    optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.decay)
+    optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.decay, amsgrad=True)
 
     torch.backends.cudnn.benchmark = True
 
