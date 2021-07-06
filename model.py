@@ -2,17 +2,23 @@ import torch.nn as nn
 import torch
 from torch.nn import functional as F
 from torch.nn.common_types import T
+from torch.nn.modules import activation
 from torchvision import models
 from utils import save_net,load_net
 from gradcam import GradCAM
 
 class ContextualModule(nn.Module):
-    def __init__(self, features, out_features=512, sizes=(1, 2, 3, 6)):
+    def __init__(self, features, out_features=512, sizes=(1, 2, 3, 6), activate="leaky", do_rate=0.0):
         super(ContextualModule, self).__init__()
         self.scales = []
         self.scales = nn.ModuleList([self._make_scale(features, size) for size in sizes])
         self.bottleneck = nn.Conv2d(features * 2, out_features, kernel_size=1)
-        self.relu = nn.ReLU()
+        if activate == "leaky":
+            self.relu = nn.LeakyReLU()
+        elif activate == "sigmoid":
+            self.relu = nn.Sigmoid()
+        else:
+            self.relu = nn.ReLU()
         self.weight_net = nn.Conv2d(features,features,kernel_size=1)
 
     def __make_weight(self,feature,scale_feature):
@@ -34,30 +40,37 @@ class ContextualModule(nn.Module):
         return self.relu(bottle)
 
 class CANNet2s(nn.Module):
-    def __init__(self, load_weights=False):
+    def __init__(self, load_weights=False, activate="leaky", bn=0, do_rate=0.0):
         super(CANNet2s, self).__init__()
-        self.context = ContextualModule(512, 512)
+        self.context = ContextualModule(512, 512, activate=activate)
         self.frontend_feat = [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512]
-        self.backend_feat  = [512, 512, 512,256,128,64]
-        self.frontend = make_layers(self.frontend_feat)
-        self.backend = make_layers(self.backend_feat,in_channels = 1024, batch_norm=True, dilation = True)
+        self.backend_feat = [512, 512, 512, 256, 128, 64]
+        self.frontend = make_layers(self.frontend_feat, batch_norm=bn, activate=activate, do_rate=do_rate)
+        self.backend = make_layers(self.backend_feat, in_channels=1024, batch_norm=True, dilation=True, activate=activate, do_rate=do_rate)
         self.output_layer = nn.Conv2d(64, 10, kernel_size=1)
-        self.relu = nn.ReLU()
+        if activate == "leaky":
+            self.relu = nn.LeakyReLU()
+        elif activate == "sigmoid":
+            self.relu = nn.Sigmoid()
+        else:
+            self.relu = nn.ReLU()
         if not load_weights:
-            mod = models.vgg16(pretrained = True)
+            mod = models.vgg16(pretrained=True)
             self._initialize_weights()
             # address the mismatch in key names for python 3
             pretrained_dict = {k[9:]: v for k, v in mod.state_dict().items() if k[9:] in self.frontend.state_dict()}
             self.frontend.load_state_dict(pretrained_dict)
+        else:
+            self._initialize_weights()
 
-    def forward(self,x_prev,x):
+    def forward(self, x_prev, x):
         x_prev = self.frontend(x_prev)
         x = self.frontend(x)
 
         x_prev = self.context(x_prev)
         x = self.context(x)
 
-        x = torch.cat((x_prev,x),1)
+        x = torch.cat((x_prev, x), 1)
 
         x = self.backend(x)
         x = self.output_layer(x)
@@ -74,7 +87,12 @@ class CANNet2s(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
-def make_layers(cfg, in_channels=3, batch_norm=False, dilation=False):
+def make_layers(cfg, in_channels=3, batch_norm=False, dilation=False, activate="leaky", do_rate=0.0):
+    activates = {
+        "leaky": nn.LeakyReLU(inplace=True),
+        "sigmoid": nn.Sigmoid(),
+        "relu": nn.ReLU()
+    }
     if dilation:
         d_rate = 2
     else:
@@ -84,11 +102,14 @@ def make_layers(cfg, in_channels=3, batch_norm=False, dilation=False):
         if v == 'M':
             layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
         else:
-            conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=d_rate,dilation = d_rate)
+            conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=d_rate, dilation=d_rate)
             if batch_norm:
-                layers += [conv2d, nn.BatchNorm2d(v), nn.ReLU(inplace=True)]
+                layers += [conv2d, nn.BatchNorm2d(v), activates[activate]]
             else:
-                layers += [conv2d, nn.ReLU(inplace=True)]
+                layers += [conv2d, activates[activate]]
+
+            if do_rate > 0.0:
+                layers += [nn.Dropout2d(do_rate)]
             in_channels = v
     return nn.Sequential(*layers)
 

@@ -30,7 +30,11 @@ parser.add_argument('--exp', default='.')
 parser.add_argument('--myloss', default='0.01')
 parser.add_argument('--start_epoch', default=0, type=int)
 parser.add_argument('--trainmodel', default="CAN")
-parser.add_argument('--decay', default=5e-4, type=float)
+parser.add_argument('--lr', default=1e-4, type=float)
+parser.add_argument('--opt', default="adam")
+parser.add_argument('--activate', default="leaky")
+parser.add_argument('--bn', default=0, type=int)
+parser.add_argument('--do_rate', default=0.0, type=float)
 
 dloss_on = False
 
@@ -81,10 +85,10 @@ def main():
     best_prec1 = 200
 
     args = parser.parse_args()
-    args.lr = 1e-4
+    # args.lr = 1e-4
     args.batch_size    = 1
     args.momentum      = 0.95
-    # args.decay         = 5*1e-4
+    args.decay         = 5*1e-4
     # args.decay         = 1e-3
     # args.start_epoch   = 0
     args.epochs = 30
@@ -109,7 +113,20 @@ def main():
         val_list = args.val_json
     else:
         raise ValueError
-    args.savefolder = os.path.join(args.exp, args.dataset + '_' + args.myloss + '_' + str(args.decay))
+
+    if args.lr != 1e-4:
+        args.savefolder = os.path.join(args.exp, args.dataset, args.myloss, 'lr-' + str(args.lr))
+    elif args.opt != "adam":
+        args.savefolder = os.path.join(args.exp, args.dataset, args.myloss, 'opt-' + args.opt)
+    elif args.activate != "leaky":
+        args.savefolder = os.path.join(args.exp, args.dataset, args.myloss, 'activate-' + args.activate)
+    elif args.do_rate != 0.0:
+        args.savefolder = os.path.join(args.exp, args.dataset, args.myloss, 'do_rate-' + str(args.do_rate))
+    elif args.bn != 0:
+        args.savefolder = os.path.join(args.exp, args.dataset, args.myloss, 'bn-' + str(args.bn))
+    else:
+        args.savefolder = os.path.join(args.exp, args.dataset, args.myloss, 'no_change')
+
     if not os.path.exists(args.savefolder):
         os.makedirs(args.savefolder)
     # logging.basicConfig(filename=os.path.join(args.savefolder, 'train.log'), level=logging.DEBUG)
@@ -121,8 +138,13 @@ def main():
     if os.path.exists(os.path.join(args.savefolder, 'log.txt')) and args.start_epoch==0:
         os.remove(os.path.join(args.savefolder, 'log.txt'))
 
+    if args.bn != 0 or args.do_rate > 0.0:
+        load_weight = True
+    else:
+        load_weight = False
+
     if args.trainmodel == "CAN":
-        model = CANNet2s()
+        model = CANNet2s(load_weights=load_weight, activate=args.activate, bn=args.bn, do_rate=args.do_rate)
     elif args.trainmodel == "SimpleCNN":
         model = SimpleCNN()
 
@@ -144,7 +166,12 @@ def main():
     # criterion = nn.MSELoss(size_average=False)
     criterion = nn.MSELoss(reduction='sum')
 
-    optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.decay, amsgrad=True)
+    if args.opt == "adam":
+        optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.decay)
+    elif args.opt == "amsgrad":
+        optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.decay, amsgrad=True)
+    elif args.opt == "sgd":
+        optimizer = torch.optim.SGD(model.parameters(), args.lr)
 
     torch.backends.cudnn.benchmark = True
 
