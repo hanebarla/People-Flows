@@ -48,6 +48,7 @@ if __name__ == "__main__":
     ax1.plot(epochs, train_mae, label="Train")
     ax1.plot(epochs, val_mae, label="Val")
     ax1.set_title('MAE')
+    ax1.legend()
 
     ax2.plot(epochs, train_loss, label="Train")
     ax2.plot(epochs, val_loss, label="Val")
